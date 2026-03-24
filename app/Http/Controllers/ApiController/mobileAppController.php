@@ -249,23 +249,20 @@ class mobileAppController extends Controller
                 DB::raw("CONCAT('https://store.bulkbasketindia.com/sliders/', image) as image")
             )->whereNotNull("image")->orderBy("id", "desc")->get();
 
-
-
-
             $filter = DB::table('product_brand')
                 ->select(
                     'id',
                     'name',
-                    'image',
-                    DB::raw("CONCAT('https://store.bulkbasketindia.com/master images/',image) as image")
+                    DB::raw("CONCAT('https://store.bulkbasketindia.com/master%20images/',image) as image")
                 );
+
             if ($request->user["supplier_id"] > 0) {
                 $filter->where('supplier_id', $request->user["supplier_id"]);
             }
 
-            $data["brands"] = $filter->whereNotNull("image")->get();
-
-
+            $brands = $filter->whereNotNull("image")->get();
+            $data["brand1"] = $brands->slice(0, 10)->values();
+            $data["brand2"] = $brands->slice(10, 10)->values();
 
             $filter = DB::table("products as a")
                 ->leftJoin("customers_products_list as b", function ($join) use ($request) {
@@ -286,12 +283,12 @@ class mobileAppController extends Controller
                 "psc.name as sub_category",
                 DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                 DB::raw("
-        CASE 
-            WHEN a.image IS NOT NULL AND a.image != '' 
-            THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
-            ELSE NULL 
-        END as image
-    ")
+                CASE 
+                    WHEN a.image IS NOT NULL AND a.image != '' 
+                    THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+                    ELSE NULL 
+                END as image
+            ")
             )->get();
 
             $productIds = $products->pluck("id")->toArray();
@@ -376,6 +373,79 @@ class mobileAppController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function mobDealOnDay(Request $request)
+    {
+        $category_id = $request->category_id;
+        $sub_category_id = $request->sub_category_id;
+
+        $query = DB::table("products as a")
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                DB::raw("
+            CASE 
+                WHEN a.image IS NOT NULL AND a.image != '' 
+                THEN CONCAT('https://store.bulkbasketindia.com/product%20images/', a.image) 
+                ELSE NULL 
+            END as image
+        ")
+            )
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->where("a.active", 1)
+            ->where("a.is_deal", 1);
+        if ($category_id) {
+            $query->where("a.category_id", $category_id);
+        }
+        if ($sub_category_id) {
+            $query->where("a.sub_category_id", $sub_category_id);
+        }
+        $products = $query->get();
+        foreach ($products as $key => $value) {
+            $details = DB::table("product_price")
+                ->where("product_id", $value->id)
+                ->orderBy("qty", "asc")
+                ->get();
+            if ($details->count() > 0) {
+                foreach ($details as $dkey => $dvalue) {
+                    $details[$dkey]->final_price = $dvalue->price;
+                }
+                $lastIndex = $details->count() - 1;
+                if ($value->is_discount == 1 && $value->discount > 0) {
+                    $highest = $details[$lastIndex];
+                    $discountAmount = ($highest->price * $value->discount) / 100;
+                    $details[$lastIndex]->final_price = round($highest->price - $discountAmount, 2);
+                }
+                $products[$key]->final_price = null;
+            } else {
+                if ($value->is_discount == 1 && $value->discount > 0) {
+                    $discountAmount = ($value->base_price * $value->discount) / 100;
+                    $products[$key]->final_price = round($value->base_price - $discountAmount, 2);
+                } else {
+                    $products[$key]->final_price = $value->base_price;
+                }
+            }
+            $products[$key]->details = $details;
+            if ($category_id) {
+                $cartItem = DB::table("cart")
+                    ->where("product_id", $value->id)
+                    ->where("customer_id", $category_id)
+                    ->first();
+                $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
+            } else {
+                $products[$key]->cart_qty = 0;
+            }
+        }
+        return response()->json([
+            'error' => false,
+            'message' => 'Deal of the day products fetched successfully',
+            'dealofdayproduct' => $products
+        ], 200);
     }
 
     public function checkGST(Request $request)
@@ -563,6 +633,7 @@ class mobileAppController extends Controller
                     "a.gst",
                     "a.cess_tax",
                     "a.mrp",
+                    "a.product_sub_sub_category",
                     DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                     DB::raw("
                             CASE 
@@ -609,6 +680,7 @@ class mobileAppController extends Controller
                     $productArr[] = [
                         "id" => $product->id,
                         "image" => $product->image,
+                        "product_sub_sub_category" => $product->product_sub_sub_category,
                         "name" => $product->name,
                         "gst" => $product->gst,
                         "cess_tax" => $product->cess_tax,
@@ -735,7 +807,6 @@ class mobileAppController extends Controller
     {
         try {
 
-
             $cart = DB::table("cart as c")
                 ->join("products as p", "c.product_id", "p.id")
                 ->where("c.customer_id", $request->user["customer_id"])
@@ -757,13 +828,19 @@ class mobileAppController extends Controller
                 )
                 ->get();
 
+            $productIds = $cart->pluck('product_id');
+
+            $productPrices = DB::table("product_price")
+                ->whereIn("product_id", $productIds)
+                ->orderBy("qty", "asc")
+                ->get()
+                ->groupBy("product_id");
+
             $result = [];
 
             foreach ($cart as $item) {
-
                 $qty = $item->qty;
-
-                // customer tier
+                $details = $productPrices[$item->product_id] ?? collect();
                 $price = DB::table("customers_products_list as a")
                     ->join("customers_products_tier as b", "a.id", "b.customer_product_id")
                     ->where("a.customer_id", $request->user["customer_id"])
@@ -771,8 +848,6 @@ class mobileAppController extends Controller
                     ->where("b.qty", "<=", $qty)
                     ->orderBy("b.qty", "desc")
                     ->value("b.base_price");
-
-                // default tier
                 if (!$price) {
 
                     $price = DB::table("product_price")
@@ -781,8 +856,6 @@ class mobileAppController extends Controller
                         ->orderBy("qty", "desc")
                         ->value("price");
                 }
-
-                // fallback
                 if (!$price) {
                     $price = DB::table("products")->where("id", $item->product_id)->value("base_price");
                 }
@@ -798,7 +871,7 @@ class mobileAppController extends Controller
                     "cess_tax" => $item->cess_tax,
                     "mrp" => $item->mrp,
                     "total" => $price * $qty,
-                    "total" => $price * $qty,
+                    "price_tiers" => $details->values(),
                     "discount" => $item->mrp > 0
                         ? round((($item->mrp - $price) / $item->mrp) * 100, 2)
                         : 0
@@ -984,6 +1057,7 @@ class mobileAppController extends Controller
             ], 422);
         }
     }
+
     public function updateWishListQty(Request $request)
     {
         $validator = Validator::make($request->all(), [

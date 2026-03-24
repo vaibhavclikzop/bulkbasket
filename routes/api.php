@@ -4,8 +4,10 @@ use App\Http\Controllers\ApiController\ApiController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ApiController\LoginController;
 use App\Http\Controllers\ApiController\mobileAppController;
+use App\Http\Controllers\ApiController\WebApiController as ApiControllerWebApiController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ChatGptController;
+use App\Http\Controllers\ApiController\WebApiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Middleware\CustomerFrontend;
@@ -97,59 +99,62 @@ Route::get('/subCategories', function () {
 //mobile app api routes 
 Route::post('mobile/send-otp', [mobileAppController::class, 'sendOTP'])->name('mobile/send-otp');
 Route::post('mobile/verify-otp', [mobileAppController::class, 'verifyOTP'])->name('mobile/verify-otp');
-
+Route::get('mobile/get-products-deal', [mobileAppController::class, 'mobDealOnDay'])->name('mobDealOnDay');
 Route::middleware([customerMobileMiddleware::class])->group(function () {
     Route::get('mobile/home-page', [mobileAppController::class, 'homePage'])->name('mobile/home-page');
     Route::post('mobile/check-gst', [mobileAppController::class, 'checkGST'])->name('mobile/check-gst');
     Route::post('mobile/update-profile', [mobileAppController::class, 'updateProfile'])->name('mobile/update-profile');
     Route::get('mobile/get-profile', [mobileAppController::class, 'getProfile'])->name('mobile/get-profile');
     Route::get('mobile/get-products/{category_id}/{sub_category_id?}/{ss_category_id?}', [mobileAppController::class, 'getProducts'])->name('mobile/get-products');
-
     Route::get('mobile/get-category', [mobileAppController::class, 'getCategory'])->name('mobile/get-category');
-
-
     Route::post('mobile/add-to-cart', [mobileAppController::class, 'addToCart'])->name('mobile/add-to-cart');
     Route::get('mobile/get-cart', [mobileAppController::class, 'getCart'])->name('mobile/get-cart');
     Route::post('mobile/remove-cart-item', [mobileAppController::class, 'removeCartItem'])->name('mobile/remove-cart-item');
     Route::post('mobile/update-cart-qty', [mobileAppController::class, 'updateCartQty'])->name('mobile/update-cart-qty');
-
-
     Route::post('mobile/add-to-wishlist', [mobileAppController::class, 'addToWishList'])->name('mobile/add-to-wishlist');
     Route::post('mobile/update-wishlist-qty', [mobileAppController::class, 'updateWishListQty'])->name('mobile/update-wishlist-qty');
     Route::get('mobile/get-wishlist', [mobileAppController::class, 'getWishList'])->name('mobile/get-wishlist');
-
     Route::post('mobile/save-address', [mobileAppController::class, 'saveAddress'])->name('mobile/save-address');
     Route::get('mobile/get-address', [mobileAppController::class, 'getAddress'])->name('mobile/get-address');
     Route::post('mobile/update-default-address', [mobileAppController::class, 'updateDefaultAddress'])->name('mobile/update-default-address');
-
     Route::get('mobile/get-states', [mobileAppController::class, 'getStates'])->name('mobile/get-states');
-
     Route::get('mobile/get-district/{state}', [mobileAppController::class, 'getDistrict'])->name('mobile/get-district');
     Route::post('mobile/delete-address', [mobileAppController::class, 'deleteAddress'])->name('mobile/delete-address');
     Route::get('mobile/get-product-details/{id}', [mobileAppController::class, 'getProductDetails'])->name('mobile/get-product-details');
-
-
     Route::get('mobile/get-product-details/{id}', [mobileAppController::class, 'getProductDetails'])->name('mobile/get-product-details');
-
-
     Route::get('mobile/get-product-by-brand/{brand_id}/{category_id?}/{sub_category_id?}/{ss_category_id?}', [mobileAppController::class, 'getProductByBrand'])->name('mobile/get-product-by-brand');
-
-
     Route::get('mobile/get-brands', [mobileAppController::class, 'getBrands'])->name('mobile/get-brands');
-
-
     Route::post('mobile/save-order', [mobileAppController::class, 'saveOrder'])->name('mobile/save-order');
     Route::get('mobile/get-estimate', [mobileAppController::class, 'getEstimate'])->name('mobile/get-estimate');
     Route::get('mobile/get-estimate-details/{id}', [mobileAppController::class, 'getEstimateDetails'])->name('mobile/get-estimate-details');
-
-
     Route::get('mobile/get-order', [mobileAppController::class, 'getOrder'])->name('mobile/get-order');
     Route::get('mobile/get-order-details/{id}', [mobileAppController::class, 'getOrderDetails'])->name('mobile/get-order-details');
-
-
-
     Route::get('mobile/get-wallet-ledger', [mobileAppController::class, 'getWalletLedger'])->name('mobile/get-wallet-ledger');
-
-
     Route::get('mobile/search-products/{query}', [mobileAppController::class, 'searchProducts'])->name('mobile/search-products');
+});
+
+
+//Web Api Route
+Route::get('/web-test', function () {
+    return response()->json(['message' => 'Web API is working']);
+});
+Route::get('web/promotional-banner', [WebApiController::class, 'BannerApi'])->name('web/promotional-banner');
+Route::post('web/check-gst', [WebApiController::class, 'checkGSTApi'])->name('web/check-gst');
+Route::get('web/get-featured-product', [WebApiController::class, 'homeCategory'])->name('web/get-featured-product');
+Route::middleware([CustomerFrontend::class])->group(function () {
+    Route::post('web/add-to-cart', [WebApiController::class, 'addToCart'])->name('web/add-to-cart');
+    Route::get('web/get-cart', [WebApiController::class, 'getCart'])->name('web/get-cart');
+    Route::post('web/remove-cart-item', [WebApiController::class, 'removeCartItem'])->name('web/remove-cart-item');
+    Route::post('web/update-cart-qty', [WebApiController::class, 'updateCartQty'])->name('web/update-cart-qty');
+    Route::post('web/add-to-wishlist', [WebApiController::class, 'addToWishList'])->name('web/add-to-wishlist');
+    Route::post('web/update-wishlist-qty', [WebApiController::class, 'updateWishListQty'])->name('web/update-wishlist-qty');
+    Route::get('web/get-wishlist', [WebApiController::class, 'getWishList'])->name('web/get-wishlist');
+    Route::post('web/update-profile', [WebApiController::class, 'updateProfile'])->name('web/update-profile');
+    Route::get('web/get-profile', [WebApiController::class, 'getProfile'])->name('web/get-profile');
+    Route::post('web/save-address', [WebApiController::class, 'saveAddress'])->name('web/save-address');
+    Route::get('web/get-address', [WebApiController::class, 'getAddress'])->name('web/get-address');
+    Route::post('web/update-default-address', [WebApiController::class, 'updateDefaultAddress'])->name('web/update-default-address');
+    Route::get('web/get-states', [WebApiController::class, 'getStates'])->name('web/get-states');
+    Route::get('web/get-district/{state}', [WebApiController::class, 'getDistrict'])->name('web/get-district');
+    Route::post('web/delete-address', [WebApiController::class, 'deleteAddress'])->name('web/delete-address');
 });

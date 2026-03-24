@@ -60,10 +60,10 @@
                             <td>
                                 <a class="btn btn-primary btn-sm" href="/supplier/customer-profile/{{ $item->id }}"><i
                                         class="fa fa-eye" aria-hidden="true"></i></a>
-                                @if ($item->active == 1)
+                                {{-- @if ($item->active == 1) --}}
                                     <a class="btn btn-info btn-sm"
                                         href="/supplier/customer-product-list/{{ $item->id }}">Customer Products</a>
-                                @endif
+                                {{-- @endif --}}
                             </td>
                         </tr>
                     @endforeach

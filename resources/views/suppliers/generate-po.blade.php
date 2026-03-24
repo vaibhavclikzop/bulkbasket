@@ -621,14 +621,15 @@
 
 
                 // Round to nearest rupee
-               // roundedTotal = Math.round(actualTotal);
+                // roundedTotal = Math.round(actualTotal);
                 roundedTotal = actualTotal;
 
 
 
 
-                $("#roundOFF").val(parseFloat(actualTotal).toFixed(2));
-                $("#grandTotal").text(parseFloat(roundedTotal).toFixed(2));
+                $("#roundOFF").val(0);
+                $("#grandTotal").text(0);
+         
             }
             $("#freight_charges, #loading_charges,  #totalDiscount, #discountType").on("keyup click", function() {
                 updateFooter();
@@ -911,9 +912,14 @@
                     mainID++;
                 });
                 setTimeout(() => {
-
+                    let totalBeforeRound=parseFloat($("#totalBeforeRound").text());
+            
                     $("#roundOFF").val(mst.round_off)
-                    $("#grandTotal").text(mst.round_off);
+  
+                   let roundOff= parseFloat(mst.round_off);
+                    let grandTotal= parseFloat(totalBeforeRound+roundOff);
+ 
+                    $("#grandTotal").text(grandTotal);
                 }, 500);
             }
 

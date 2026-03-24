@@ -51,11 +51,12 @@
 
                         PO No : {{ $orders->po_id }} <br>
                         Date : {{ \Carbon\Carbon::parse($orders->po_date)->format('d-m-Y') }}<br>
-                        Expected Delivery Date : {{ \Carbon\Carbon::parse($orders->expected_delivery_date)->format('d-m-Y') }}<br>
+                        Expected Delivery Date :
+                        {{ \Carbon\Carbon::parse($orders->expected_delivery_date)->format('d-m-Y') }}<br>
                     </p>
                 </div>
                 <div style="padding: 5px; border:solid 1px; width: 50%">
-                    
+
                     <p>
 
                         Payment Terms : {{ $orders->payment_term }} Days<br>
@@ -185,11 +186,22 @@
                                         $orders->loading_charges -
                                         $orders->discount_value;
                                 }
-
                             @endphp
-                            <th colspan="10" style="border:1px solid;padding:2px;text-align: right">Grand Total
+                            <th colspan="10" style="border:1px solid;padding:2px;text-align: right"> Total
                             </th>
                             <th style="border:1px solid;padding:2px">{{ round($grandTotal, 2, PHP_ROUND_HALF_UP) }}</th>
+                        </tr>
+                        <tr>
+                            <th colspan="10" style="border:1px solid;padding:2px;text-align: right"> Round OFF
+                            </th>
+                            <th style="border:1px solid;padding:2px">{{ round($orders->round_off, 2, PHP_ROUND_HALF_UP) }}
+                            </th>
+                        </tr>
+                          <tr>
+                            <th colspan="10" style="border:1px solid;padding:2px;text-align: right"> Grand Total
+                            </th>
+                            <th style="border:1px solid;padding:2px">{{ round($grandTotal+$orders->round_off, 2, PHP_ROUND_HALF_UP) }}
+                            </th>
                         </tr>
                     </tfoot>
 
