@@ -482,6 +482,16 @@ class mobileAppController extends Controller
                     "data" => []
                 ], 422);
             }
+            $customer =  DB::table("customers as a")
+                ->select("a.*")
+                ->join("customer_users as b", "a.id", "b.customer_id")->where("b.id", $request->user["id"])->first();
+            $image = "";
+            if ($request->hasFile('image')) {
+                $image = time() . '.' . $request->file('image')->extension();
+                $request->file('image')->move(public_path('customer'), $image);
+            } else {
+                $image = $customer->image;
+            }
             DB::table("customer_users")
                 ->where("id", $request->user["id"])
                 ->update([
@@ -492,6 +502,12 @@ class mobileAppController extends Controller
                     "district" => $request->district ?? $user->district,
                     "city" => $request->city ?? $user->city,
                     "pincode" => $request->pincode ?? $user->pincode,
+
+                ]);
+            DB::table("customers")
+                ->where("id", $request->user["id"])
+                ->update([
+                    "image" => $image
                 ]);
             $updatedUser = DB::table("customer_users")
                 ->where("id", $request->user["id"])
@@ -534,7 +550,7 @@ class mobileAppController extends Controller
                     END as image
                 ")
                 )
-                ->first();  
+                ->first();
             if ($customer) {
                 return response()->json([
                     'error' => false,
