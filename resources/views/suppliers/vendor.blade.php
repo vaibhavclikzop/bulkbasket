@@ -46,7 +46,7 @@
                             <td>{{ $item->pan_no }}</td>
                             {{-- <td>{{ $item->whatsapp_number ?? '--' }}</td> --}}
                             <td>{{ $item->email }}</td>
-                            <td>{{ $item->address }}</td>
+                            <td>{{ $item->address1 }}<br>{{ $item->address2 }}</td>
                             <td>
                                 <button class="btn btn-primary btn-sm editVendor" data-data="{{ @json_encode($item) }}"
                                     type="button"><i class="fa fa-pencil" aria-hidden="true"></i></button>
