@@ -246,6 +246,18 @@ class WebsiteManagement extends Controller
         return view("admin.faq-main-list", compact("data", "faq_category"));
     }
 
+    public function faqDeleteMain(Request $request)
+    {
+        try {
+            DB::table('main_faq')
+                ->where('id', $request->id)
+                ->delete();
+            return redirect()->back()->with('success', 'FAQ deleted successfully');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
     public function faqSaveMain(Request $request)
     {
         $validator = Validator::make($request->all(), [

@@ -1725,6 +1725,7 @@ class Supplier extends Controller
         $formattedNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
         $nextVndr = $vndcode1 . $formattedNumber;
         $data = Vendor::where("supplier_id", $request->user['supplier_id'])->get();
+         
         return view("suppliers.vendor", compact("data", "nextVndr"));
     }
 

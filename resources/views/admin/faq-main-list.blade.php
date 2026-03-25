@@ -46,6 +46,10 @@
                                         type="button">
                                         <i class="fa fa-pencil" aria-hidden="true"></i>
                                     </button>
+                                    <button class="btn btn-danger btn-sm deleteFaq" data-data="{{ @json_encode($item) }}"
+                                        type="button">
+                                        <i class="fa fa-trash" aria-hidden="true"></i>
+                                    </button>
                                 </td>
                             </tr>
                         @endforeach
@@ -93,6 +97,34 @@
         </div>
     </form>
 
+    <form action="{{ route('s1/faqDeleteMain') }}" method="POST" class="needs-validation" novalidate
+        enctype="multipart/form-data">
+        @csrf
+        <div class="modal fade" id="modalIdFaq" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+            role="dialog" aria-labelledby="modalTitleId" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitleId">
+                            Delete FAQ
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="did" name="id">
+                        <p class="text-danger text-center">Are You Sure You Want Delete This FAQ </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Close
+                        </button>
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
     <script>
         $(".add").on("click", function() {
             $("#modalTitleId").text("Add");
@@ -112,8 +144,18 @@
             $("#answer").val(data.answer);
             $("#modalId").modal("show");
         });
+
+        $(document).on("click", ".deleteFaq", function() {
+            $("#modalTitleId").text("Delete");
+            var data = $(this).data("data");
+            $("#did").val(data.id);
+            $("#modalIdFaq").modal("show");
+        });
     </script>
     <script>
+        function limitText(text, limit = 50) {
+            return text.length > limit ? text.substring(0, limit) + '...' : text;
+        }
         let allFaqs = @json($data);
         let defaultCatId = "{{ $faq_category->first()->id ?? '' }}";
         renderTable(defaultCatId);
@@ -124,6 +166,7 @@
 
             renderTable(catId);
         });
+
         function renderTable(catId) {
             let tbody = $("table.dataTable tbody");
             tbody.empty();
@@ -138,12 +181,16 @@
                 <tr>
                     <td>${sno++}</td>
                     <td>${item.category_name}</td>
-                    <td>${item.question}</td>
-                    <td>${item.answer}</td>
+                    <td>${limitText(item.question)}</td>
+                    <td>${limitText(item.answer)}</td>
                     <td>
                         <button class="btn btn-primary btn-sm edit" 
                                 data-data='${JSON.stringify(item)}'>
                             <i class="fa fa-pencil" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm deleteFaq" 
+                                data-data='${JSON.stringify(item)}'>
+                            <i class="fa fa-trash" aria-hidden="true"></i>
                         </button>
                     </td>
                 </tr>

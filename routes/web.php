@@ -103,6 +103,7 @@ Route::middleware([CheckAdmin::class])->group(function () {
 
     Route::get('s1/faq-main-list', [WebsiteManagement::class, 'faqMainList'])->name('s1/faqMainList');
     Route::post('s1/faqSaveMain', [WebsiteManagement::class, 'faqSaveMain'])->name('s1/faqSaveMain');
+    Route::post('s1/faqDeleteMain', [WebsiteManagement::class, 'faqDeleteMain'])->name('s1/faqDeleteMain');
 
     Route::get('s1/quality-list', [WebsiteManagement::class, 'qulityMainList'])->name('s1/qulityMainList');
     Route::post('s1/qulitySaveMain', [WebsiteManagement::class, 'qulitySaveMain'])->name('s1/qulitySaveMain');
