@@ -153,7 +153,9 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::get('web/get-wishlist', [WebApiController::class, 'getWishList'])->name('web/get-wishlist');
     Route::post('web/update-profile', [WebApiController::class, 'updateProfile'])->name('web/update-profile');
     Route::get('web/get-profile', [WebApiController::class, 'getProfile'])->name('web/get-profile');
-    Route::post('web/save-address', [WebApiController::class, 'saveAddress'])->name('web/save-address');
+    Route::get('web/get-company', [WebApiController::class, 'getCompany'])->name('web/get-company');        
+    Route::post('web/update-company', [WebApiController::class, 'updateCompany'])->name('web/update-company');
+    Route::post('web/save-address', [WebApiController::class, 'saveAddress'])->name('web/save-address');    
     Route::get('web/get-address', [WebApiController::class, 'getAddress'])->name('web/get-address');
     Route::post('web/update-default-address', [WebApiController::class, 'updateDefaultAddress'])->name('web/update-default-address');
     Route::get('web/get-states', [WebApiController::class, 'getStates'])->name('web/get-states');
