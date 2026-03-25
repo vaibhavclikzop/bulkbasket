@@ -471,57 +471,74 @@ class mobileAppController extends Controller
 
     public function updateProfile(Request $request)
     {
-        // $validator = Validator::make($request->all(), [
-        //     'number' => 'required|digits:10',
-        // ]);
+        try {
+            $user = DB::table("customer_users")
+                ->where("id", $request->user["id"])
+                ->first();
+            if (!$user) {
+                return response()->json([
+                    'error' => true,
+                    'message' => "User not found",
+                    "data" => []
+                ], 422);
+            }
+            DB::table("customer_users")
+                ->where("id", $request->user["id"])
+                ->update([
+                    "name" => $request->name ?? $user->name,
+                    "email" => $request->email ?? $user->email,
+                    "address" => $request->address ?? $user->address,
+                    "state" => $request->state ?? $user->state,
+                    "district" => $request->district ?? $user->district,
+                    "city" => $request->city ?? $user->city,
+                    "pincode" => $request->pincode ?? $user->pincode,
+                ]);
+            $updatedUser = DB::table("customer_users")
+                ->where("id", $request->user["id"])
+                ->first();
+            return response()->json([
+                'error' => false,
+                'message' => "Profile Updated Successfully",
+                "data" => $updatedUser
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => true,
+                'message' => $th->getMessage(),
+                "data" => []
+            ], 422);
+        }
+    }
 
-        // if ($validator->fails()) {
-        //     return response()->json([
-        //         'error' => true,
-        //         'message' => 'Enter valid 10-digit mobile number',
-        //         "data" => []
-        //     ], 422);
-        // }
-
-
+    public function getProfile(Request $request)
+    {
         try {
 
-
-
-            $customer =  DB::table("customers as a")
-                ->select("a.*")
-                ->join("customer_users as b", "a.id", "b.customer_id")->where("b.id", $request->user["id"])->first();
-            $image = "";
-            if ($request->hasFile('image')) {
-                $image = time() . '.' . $request->file('image')->extension();
-                $request->file('image')->move(public_path('customer'), $image);
-            } else {
-                $image = $customer->image;
-            }
-
-
+            $customer = DB::table("customers as a")
+                ->join("customer_users as b", "a.id", "b.customer_id")
+                ->where("b.id", $request->user["id"])
+                ->select(
+                    "b.name as customer_name",
+                    "b.email as customer_email",
+                    "b.number as customer_number",
+                    "b.address as customer_address",
+                    "b.state as customer_state",
+                    "b.district as customer_district",
+                    "b.city as customer_city",
+                    "b.pincode as customer_pincode",
+                    DB::raw("
+                    CASE 
+                        WHEN a.image IS NOT NULL AND a.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/customer/', a.image) 
+                        ELSE NULL 
+                    END as image
+                ")
+                )
+                ->first();  
             if ($customer) {
-
-                DB::table("customers as a")
-                    ->join("customer_users as b", "a.id", "b.customer_id")
-                    ->where("b.id", $request->user["id"])
-                    ->update(array(
-                        "a.name" => $request->name ?? $customer->name,
-                        "a.number" => $request->number ??  $customer->number,
-                        "a.email" => $request->email ??  $customer->email,
-                        "a.gst" => $request->gst ?? $customer->gst,
-                        "a.address" => $request->address ?? $customer->address,
-                        "a.state" => $request->state ?? $customer->state,
-                        "a.district" => $request->district ?? $customer->district,
-                        "a.city" => $request->city ?? $customer->city,
-                        "a.pincode" => $request->pincode ?? $customer->pincode,
-                        "a.image" => $image ?? $customer->image,
-
-                    ));
-
                 return response()->json([
                     'error' => false,
-                    'message' => "Update Successfully",
+                    'message' => "Load Successfully",
                     "data" => $customer
                 ], 200);
             } else {
@@ -540,18 +557,79 @@ class mobileAppController extends Controller
         }
     }
 
-    public function getProfile(Request $request)
+    public function updateCompany(Request $request)
+    {
+        try {
+
+            $customer = DB::table("customers as a")
+                ->join("customer_users as b", "a.id", "b.customer_id")
+                ->where("b.id", $request->user["id"])
+                ->select("a.*")
+                ->first();
+            if (!$customer) {
+                return response()->json([
+                    'error' => true,
+                    'message' => "Customer details not found",
+                    "data" => []
+                ], 422);
+            }
+            $gstNumber = $request->gst;
+            if ($gstNumber) {
+                $gstResponse = new checkGST();
+                if (!$gstResponse || $gstResponse['status'] != 'success') {
+                    return response()->json([
+                        'error' => true,
+                        'message' => "Invalid GST Number",
+                        "data" => []
+                    ], 422);
+                }
+            }
+            DB::table("customers as a")
+                ->join("customer_users as b", "a.id", "b.customer_id")
+                ->where("b.id", $request->user["id"])
+                ->update([
+                    "a.name" => $request->name ?? $customer->name,
+                    "a.number" => $request->number ?? $customer->number,
+                    "a.email" => $request->email ?? $customer->email,
+                    "a.gst" => $gstNumber ?? $customer->gst,
+                    "a.address" => $request->address ?? $customer->address,
+                    "a.state" => $request->state ?? $customer->state,
+                    "a.district" => $request->district ?? $customer->district,
+                    "a.city" => $request->city ?? $customer->city,
+                    "a.pincode" => $request->pincode ?? $customer->pincode,
+                ]);
+            return response()->json([
+                'error' => false,
+                'message' => "Update Successfully",
+                "data" => $customer
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => true,
+                'message' => $th->getMessage(),
+                "data" => []
+            ], 422);
+        }
+    }
+
+    public function getCompany(Request $request)
     {
         try {
 
             $customer =  DB::table("customers as a")
-                ->select("a.*", DB::raw("
-                        CASE 
-                            WHEN a.image IS NOT NULL AND a.image != '' 
-                            THEN CONCAT('https://store.bulkbasketindia.com/customer/', a.image) 
-                            ELSE NULL 
-                        END as image
-                    "))
+                ->select(
+                    "a.id",
+                    "a.type as customer_type",
+                    "a.name as company_name",
+                    "a.email as company_email",
+                    "a.number as company_number",
+                    "a.gst",
+                    "a.address as company_address",
+                    "a.state as company_state",
+                    "a.district as company_district",
+                    "a.pincode as comapny_pincode",
+                    "a.customer_type as company_type"
+                )
                 ->join("customer_users as b", "a.id", "b.customer_id")->where("b.id", $request->user["id"])->first();
 
             if ($customer) {
@@ -577,9 +655,9 @@ class mobileAppController extends Controller
         }
     }
 
+
     public function getProducts(Request $request, $category_id, $sub_category_id = null, $ss_category_id = null)
     {
-
         if (!$category_id) {
             return response()->json([
                 'error' => true,
@@ -587,10 +665,7 @@ class mobileAppController extends Controller
                 "data" => []
             ], 422);
         }
-
         try {
-
-
             $PSC = DB::table("product_sub_category")
                 ->select("product_sub_category.*", DB::raw("
                 CASE 
@@ -601,7 +676,6 @@ class mobileAppController extends Controller
                     "))
                 ->where("category_id", $category_id)
                 ->get();
-
             $result = [];
 
             foreach ($PSC as $sub) {

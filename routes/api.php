@@ -105,6 +105,8 @@ Route::middleware([customerMobileMiddleware::class])->group(function () {
     Route::post('mobile/check-gst', [mobileAppController::class, 'checkGST'])->name('mobile/check-gst');
     Route::post('mobile/update-profile', [mobileAppController::class, 'updateProfile'])->name('mobile/update-profile');
     Route::get('mobile/get-profile', [mobileAppController::class, 'getProfile'])->name('mobile/get-profile');
+    Route::get('mobile/get-company', [mobileAppController::class, 'getCompany'])->name('mobile/get-company');
+    Route::post('mobile/update-company', [mobileAppController::class, 'updateCompany'])->name('mobile/update-company');
     Route::get('mobile/get-products/{category_id}/{sub_category_id?}/{ss_category_id?}', [mobileAppController::class, 'getProducts'])->name('mobile/get-products');
     Route::get('mobile/get-category', [mobileAppController::class, 'getCategory'])->name('mobile/get-category');
     Route::post('mobile/add-to-cart', [mobileAppController::class, 'addToCart'])->name('mobile/add-to-cart');

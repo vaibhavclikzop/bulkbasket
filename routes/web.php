@@ -211,6 +211,10 @@ Route::middleware([Suppliers::class])->group(function () {
 
     // Order Estimate
     Route::get('supplier/create-estimate', [EstimateController::class, 'createEstimate'])->name('supplier/create-estimate');
+    Route::post('supplier/saveEstimate', [EstimateController::class, 'saveEstimate'])->name('supplier/saveEstimate');
+
+
+
     Route::get('supplier/orders-estimate/{status}', [Supplier::class, 'OrdersEstimate'])->name('supplier/orders-estimate');
     Route::get('supplier/order-estimate-details/{id}', [Supplier::class, 'OrderDetailsEstimate'])->name('supplier/order-estimate-details');
     Route::get('supplier/order-estimate-request-price/{id}', [Supplier::class, 'OrderEstimateRequestPrice'])->name('supplier/order-estimate-request-price');
@@ -219,6 +223,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::get('supplier/get-product-details/{id}', [Supplier::class, 'getProductDetails'])->name('supplier/get-product-details');
     Route::post('supplier/orders-save/', [Supplier::class, 'OrdersSave'])->name('supplier/ordersSave');
     Route::post('supplier/EditEstimateOrder', [Supplier::class, 'EditEstimateOrder'])->name('supplier/EditEstimateOrder');
+
 
 
     // order management
@@ -304,7 +309,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('supplier/getProductQtyWisePrice', [CustomerProductPrice::class, 'getProductQtyWisePrice'])->name('supplier/getProductQtyWisePrice');
 
 
-    
+
     // Vendor Management
     Route::get("supplier/vendor", [Supplier::class, "vendorList"])->name("supplier/vendorList");
     Route::post("supplier/saveVendor", [Supplier::class, "saveVendor"])->name("supplier/saveVendor");
@@ -346,7 +351,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::get('getLocationPurchase', [PoController::class, 'getLocationPurchase'])->name('getLocationPurchase');
     Route::get('getPOProducts', [PoController::class, 'getPOProducts'])->name('getPOProducts');
 
-    
+
     Route::post('GetPODet', [PoController::class, 'GetPODet'])->name('GetPODet');
     Route::post('GetProducts1', [PoController::class, 'GetProducts1'])->name('GetProducts1');
     Route::post('/GetWarehouseLocations', [PoController::class, 'GetWarehouseLocations']);
@@ -354,7 +359,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('/GetLastVendorPrice', [PoController::class, 'GetLastVendorPrice']);
     Route::post('/checkInvoiceNo', [PoController::class, 'checkInvoiceNo'])->name("checkInvoiceNo");
 
-    
+
 
     // Out ward Management
     Route::get('supplier/outward-stock', [OutWardController::class, 'OutwardStock'])->name('supplier/outward-stock');
@@ -376,7 +381,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::get('supplier/dispatch-plan', [DispatchController::class, 'dispatchPlan'])->name('supplier/dispatch-plan');
 
     //export
-    Route::get('supplier/export-products', [excelExport::class,'export']);
+    Route::get('supplier/export-products', [excelExport::class, 'export']);
 });
 
 Route::middleware([Customers::class])->group(function () {
