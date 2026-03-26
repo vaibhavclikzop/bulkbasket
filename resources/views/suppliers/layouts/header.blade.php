@@ -200,11 +200,21 @@
                      </li>
 
                      @php
-                         $active = ['supplier/generate-po', 'supplier/purchase-order/pending', 'supplier/purchase-order/generated',"supplier/inward-stock","supplier/purchase-order/partial","supplier/purchase-order/complete","supplier/purchase-return","supplier/inward-product-wise"];
+                         $active = [
+                             'supplier/generate-po',
+                             'supplier/purchase-order/pending',
+                             'supplier/purchase-order/generated',
+                             'supplier/inward-stock',
+                             'supplier/purchase-order/partial',
+                             'supplier/purchase-order/complete',
+                             'supplier/purchase-return',
+                             'supplier/inward-product-wise',
+                         ];
                      @endphp
                      <li class="nav-item">
-                         <a class="nav-link {{ in_array(request()->path(), $active) ? 'active' : '' }}" data-bs-toggle="collapse" href="#purchase-order" role="button"
-                             aria-expanded="false" aria-controls="horizontal-menu">
+                         <a class="nav-link {{ in_array(request()->path(), $active) ? 'active' : '' }}"
+                             data-bs-toggle="collapse" href="#purchase-order" role="button" aria-expanded="false"
+                             aria-controls="horizontal-menu">
                              <i class="fa fa-shopping-bag" aria-hidden="true"></i>
                              <span class="item-name">Purchase Management</span>
                              <i class="right-icon">
@@ -217,7 +227,8 @@
                          </a>
                          <ul class="sub-nav collapse" id="purchase-order" data-bs-parent="#sidebar-menu">
                              <li class="nav-item">
-                                 <a class="nav-link   {{ request()->is('supplier/generate-po') ? 'active' : '' }}" href="/supplier/generate-po">
+                                 <a class="nav-link   {{ request()->is('supplier/generate-po') ? 'active' : '' }}"
+                                     href="/supplier/generate-po">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -233,7 +244,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link {{ request()->is('supplier/purchase-order/pending') ? 'active' : '' }} " href="/supplier/purchase-order/pending">
+                                 <a class="nav-link {{ request()->is('supplier/purchase-order/pending') ? 'active' : '' }} "
+                                     href="/supplier/purchase-order/pending">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -249,7 +261,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link {{ request()->is('supplier/purchase-order/generated') ? 'active' : '' }} " href="/supplier/purchase-order/generated">
+                                 <a class="nav-link {{ request()->is('supplier/purchase-order/generated') ? 'active' : '' }} "
+                                     href="/supplier/purchase-order/generated">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -265,7 +278,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link {{ request()->is('supplier/inward-stock') ? 'active' : '' }} " href="/supplier/inward-stock">
+                                 <a class="nav-link {{ request()->is('supplier/inward-stock') ? 'active' : '' }} "
+                                     href="/supplier/inward-stock">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -281,7 +295,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link {{ request()->is('supplier/inward-report') ? 'active' : '' }}" href="/supplier/inward-report">
+                                 <a class="nav-link {{ request()->is('supplier/inward-report') ? 'active' : '' }}"
+                                     href="/supplier/inward-report">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -297,7 +312,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link {{ request()->is('supplier/purchase-order/partial') ? 'active' : '' }} " href="/supplier/purchase-order/partial">
+                                 <a class="nav-link {{ request()->is('supplier/purchase-order/partial') ? 'active' : '' }} "
+                                     href="/supplier/purchase-order/partial">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -313,7 +329,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link {{ request()->is('supplier/purchase-order/complete') ? 'active' : '' }} " href="/supplier/purchase-order/complete">
+                                 <a class="nav-link {{ request()->is('supplier/purchase-order/complete') ? 'active' : '' }} "
+                                     href="/supplier/purchase-order/complete">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -329,7 +346,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link  {{ request()->is('supplier/purchase-return') ? 'active' : '' }}" href="/supplier/purchase-return">
+                                 <a class="nav-link  {{ request()->is('supplier/purchase-return') ? 'active' : '' }}"
+                                     href="/supplier/purchase-return">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -345,7 +363,8 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link {{ request()->is('supplier/inward-product-wise') ? 'active' : '' }}" href="/supplier/inward-product-wise">
+                                 <a class="nav-link {{ request()->is('supplier/inward-product-wise') ? 'active' : '' }}"
+                                     href="/supplier/inward-product-wise">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -1011,6 +1030,11 @@
                                      </li>
                                      <li><a class="dropdown-item" href="/supplier/product-sub-sub-category"> Sub Sub
                                              Category</a>
+                                     </li>
+                                     <li>
+                                         <hr class="dropdown-divider">
+                                     </li>
+                                     <li><a class="dropdown-item" href="/supplier/product-type"> Product Type</a>
                                      </li>
                                      <li>
                                          <hr class="dropdown-divider">

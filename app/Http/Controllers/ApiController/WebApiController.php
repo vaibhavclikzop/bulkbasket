@@ -445,6 +445,7 @@ class WebApiController extends Controller
 
     public function ProductDetailsApi(Request $request, $id)
     {
+       
         $product = DB::table("products as a")
             ->select("a.*","a.base_price as final_price", "b.name as uom", "c.name as category", "d.name as sub_category")
             ->join("product_uom as b", "a.uom_id", "b.id")
@@ -462,9 +463,7 @@ class WebApiController extends Controller
         }
 
         $product->details = DB::table("product_price")->where("product_id", $product->id)->get();
-
         $web_token = $request->header('web_token') ?? session('web_token');
-
         if ($web_token) {
             $customer = DB::table("customer_users")->where("web_token", $web_token)->first();
             if ($customer) {

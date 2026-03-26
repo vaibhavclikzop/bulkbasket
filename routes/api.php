@@ -159,7 +159,7 @@ Route::get('web/get-slider', [WebApiController::class, 'SlidersApi'])->name('web
 Route::get('web/get-banner-deal-of-day', [WebApiController::class, 'dealofDayApi'])->name('web/get-banner-deal-of-day');
 Route::get('web/get-footer-banner', [WebApiController::class, 'FooterBannerApi'])->name('web/get-footer-banner');
 Route::get('web/get-brand-slider', [WebApiController::class, 'brandSliderApi'])->name('web/get-brand-slider');
-Route::get('web/get-product-detail/{id}', [WebApiController::class, 'ProductDetailsApi'])->name('web/get-product-detail');
+Route::get('web/get-product-details/{id}', [WebApiController::class, 'ProductDetailsApi'])->name('web/get-product-details');
 Route::get('web/get-faq', [WebApiController::class, 'faqCategory'])->name('web/get-faq');
 Route::get('web/quality-step', [WebApiController::class, 'qulityMainList'])->name('web/quality-step');
 Route::get('web/get-location', [WebApiController::class, 'getLocation'])->name('web/get-location');

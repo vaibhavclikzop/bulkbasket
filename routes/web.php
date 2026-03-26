@@ -170,7 +170,8 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('supplier/GetProductCategory', [Masters::class, 'GetProductCategory'])->name('supplier/GetProductCategory');
     Route::post('supplier/GetProductSubCategory', [Masters::class, 'GetProductSubCategory'])->name('supplier/GetProductSubCategory');
     Route::post('supplier/GetProductSubSubCategory', [Masters::class, 'GetProductSubSubCategory'])->name('supplier/GetProductSubSubCategory');
-
+    Route::get('supplier/product-type', [Masters::class, 'ProductType'])->name('supplier/product-type');
+    Route::post('supplier/SaveProductType', [Masters::class, 'SaveProductType'])->name('supplier/SaveProductType');
 
     Route::get('supplier/product-uom', [Masters::class, 'ProductUOM'])->name('supplier/product-uom');
     Route::post('supplier/SaveProductUOM', [Masters::class, 'SaveProductUOM'])->name('supplier/SaveProductUOM');

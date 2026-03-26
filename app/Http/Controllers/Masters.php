@@ -115,7 +115,57 @@ class Masters extends Controller
         return view("admin.suppliers-users", compact("data"));
     }
 
+    public function ProductType(Request $request)
+    {
+        $data = DB::table("product_type as a")
+            ->where("a.supplier_id", $request->user['supplier_id'])
+            ->groupBy("a.id", "a.name", "a.active", "a.supplier_id", "a.created_at", "a.updated_at")
+            ->get();
+        return view("suppliers.product-type", compact("data"));
+    }
 
+
+    public function SaveProductType(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            $messages = $validator->errors();
+            $count = 0;
+            foreach ($messages->all() as $error) {
+                if ($count == 0)
+                    return redirect()->back()->with('error', $error);
+
+                $count++;
+            }
+        }
+
+        try {
+            $check = DB::table("product_type")->where("name", $request->name)->where("supplier_id", $request->user["supplier_id"])->first();
+            if ($check) {
+                return redirect()->back()->with("error", "Product Type name already added");
+            }
+            if ($request->id) {
+                DB::table('product_type')->where("id", $request->id)->update(array(
+
+                    "name" => $request->name,
+                    "supplier_id" => $request->user['supplier_id'],
+                ));
+            } else {
+                DB::table('product_type')->insertGetId(array(
+                    "name" => $request->name,
+                    "supplier_id" => $request->user['supplier_id'],
+                ));
+            }
+        } catch (Exception $e) {
+
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        return  redirect()->back()->with("success", "Save Successfully");
+    }
 
     public function ProductBrand(Request $request)
     {
@@ -520,7 +570,7 @@ class Masters extends Controller
         if (request("search_brand_id")) {
             $query->where("a.brand_id", request("search_brand_id"));
         }
-         if (request("search_category_id")) {
+        if (request("search_category_id")) {
             $query->where("a.category_id", request("search_category_id"));
         }
         $productCount = DB::table('products')->count();
@@ -1049,7 +1099,7 @@ class Masters extends Controller
     }
 
 
-     public function UpdateProductIsHome(Request $request)
+    public function UpdateProductIsHome(Request $request)
     {
         DB::table("products")->where("id", $request->id)->update(array("is_home" => $request->is_home));
     }
