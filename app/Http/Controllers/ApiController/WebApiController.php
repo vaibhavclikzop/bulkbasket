@@ -36,7 +36,7 @@ class WebApiController extends Controller
         }
     }
 
-     public function getCategory(Request $request)
+    public function getCategory(Request $request)
     {
         $categories = DB::table('product_category')
             ->select('id', 'name', 'image')
@@ -117,7 +117,6 @@ class WebApiController extends Controller
                 'name' => $p->sub_category,
             ];
         })->unique('id')->values();
-
         return response()->json([
             'products' => $products,
             'subcategories' => $subcategories
@@ -313,7 +312,7 @@ class WebApiController extends Controller
         return $products;
     }
 
-     public function dealOnDay(Request $request)
+    public function dealOnDay(Request $request)
     {
         $category_id = $request->category_id;
         $sub_category_id = $request->sub_category_id;
@@ -373,7 +372,7 @@ class WebApiController extends Controller
         return $products;
     }
 
-     public function SlidersApi(Request $request)
+    public function SlidersApi(Request $request)
     {
         try {
             $data = DB::table("sliders")->get();
@@ -447,7 +446,7 @@ class WebApiController extends Controller
     public function ProductDetailsApi(Request $request, $id)
     {
         $product = DB::table("products as a")
-            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->select("a.*","a.base_price as final_price", "b.name as uom", "c.name as category", "d.name as sub_category")
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
@@ -508,8 +507,111 @@ class WebApiController extends Controller
             ]
         ], 200);
     }
+    
+     public function getProductDetails(Request $request, $product_id)
+    {
+        try {
 
-     public function dealofDayApi(Request $request)
+            $product = DB::table("products as a")
+                ->leftJoin("customers_products_list as b", function ($join) use ($request) {
+                    $join->on("a.id", "=", "b.product_id")
+                        ->where("b.customer_id", $request->user["customer_id"])
+                        ->where("a.supplier_id", 1);
+                })
+                ->where("a.id", $product_id)
+                ->where("a.active", 1)
+                ->select(
+                    "a.id",
+                    "a.name",
+                    "a.gst",
+                    "a.cess_tax",
+                    "a.description",
+                    "a.mrp",
+                    DB::raw("COALESCE(b.base_price, a.base_price) as price"),
+                    DB::raw("
+                    CASE 
+                        WHEN a.image IS NOT NULL AND a.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+                        ELSE NULL 
+                    END as image
+                ")
+                )
+                ->first();
+
+            if (!$product) {
+                return response()->json([
+                    "error" => true,
+                    "message" => "Product not found",
+                    "data" => []
+                ], 404);
+            }
+
+            // tiers
+            $tiers = DB::table("customers_products_list as a")
+                ->join("customers_products_tier as b", "a.id", "b.customer_product_id")
+                ->select("b.qty", "b.base_price as price")
+                ->where("a.customer_id", $request->user["customer_id"])
+                ->where("a.product_id", $product->id)
+                ->orderBy("b.qty", "asc")
+                ->get();
+
+            if ($tiers->isEmpty()) {
+                $tiers = DB::table("product_price")
+                    ->select("qty", "price")
+                    ->where("product_id", $product->id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+            }
+
+            // cart check
+            $cart = DB::table("cart")
+                ->where("product_id", $product->id)
+                ->where("customer_id", $request->user["customer_id"])
+                ->first();
+
+            // wishlist check
+            $wishlist = DB::table("wishlist")
+                ->where("product_id", $product->id)
+                ->where("customer_id", $request->user["customer_id"])
+                ->first();
+
+            $cart_status = $cart ? true : false;
+            $wishlist_status = $wishlist ? true : false;
+
+            $result = [
+                "id" => $product->id,
+                "image" => $product->image,
+                "name" => $product->name,
+                "description" => $product->description,
+                "gst" => $product->gst,
+                "cess_tax" => $product->cess_tax,
+                "price" => $product->price,
+                "mrp" => $product->mrp,
+                "discount" => $product->mrp > 0
+                    ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
+                    : 0,
+                "tiers" => $tiers,
+                "cart" => $cart,
+                "cart_status" => $cart_status,
+                "wishlist_status" => $wishlist_status,
+            ];
+
+            return response()->json([
+                "error" => false,
+                "message" => "Load Successfully",
+                "data" => $result
+            ], 200);
+        } catch (\Throwable $th) {
+
+            return response()->json([
+                "error" => true,
+                "message" => $th->getMessage(),
+                "data" => []
+            ], 422);
+        }
+    }
+
+    public function dealofDayApi(Request $request)
     {
         try {
             $data = DB::table("sliders3")->orderBy("id", "desc")->get();
