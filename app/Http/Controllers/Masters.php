@@ -574,8 +574,9 @@ class Masters extends Controller
             $query->where("a.category_id", request("search_category_id"));
         }
         $productCount = DB::table('products')->count();
+        $productType=DB::table('product_type')->where('active',1)->get();
         $data = $query->paginate(10)->withQueryString();
-        return view("suppliers.products", compact("data", 'warehouse', "vendor", "brand", "product_uom", "gst", "category", "productCount", "subCategories"));
+        return view("suppliers.products", compact("data",'productType', 'warehouse', "vendor", "brand", "product_uom", "gst", "category", "productCount", "subCategories"));
     }
 
 
@@ -915,6 +916,7 @@ class Masters extends Controller
                 "name"          => $request->name,
                 "image"         => $file,
                 "brand_id"      => $request->brand_id,
+                "product_type_id"      => $request->product_type_id,
                 "category_id"   => $request->category_id,
                 "sub_category_id" => $request->sub_category_id,
                 "product_sub_sub_category" => $request->product_sub_sub_category,

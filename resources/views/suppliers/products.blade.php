@@ -248,6 +248,16 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
+                                <label for="">Product Type <span style="color:red">*</span></label>
+                                <select name="product_type_id" id="product_type_id" class="form-control">
+                                    <option value="">Select Type </option>
+                                    @foreach ($productType as $item)
+                                        <option value="{{ $item->id }}">
+                                            {{ \Illuminate\Support\Str::upper($item->name) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
                                 <label for="">Category <span style="color:red">*</span></label>
                                 <select name="category_id" id="category_id" class="form-control" required>
                                     <option value="">Select Category </option>
@@ -969,6 +979,7 @@
                     let form = $("form.needs-validation")[0];
                     form.reset();
                     $("#id").val("");
+                    $("#product_type_id").val("");
                     $("#sub_category_id").html('<option value="">Select Sub Category</option>');
                     $("#product_sub_sub_category").html(
                         '<option value="">Select Sub Sub Category</option>');
