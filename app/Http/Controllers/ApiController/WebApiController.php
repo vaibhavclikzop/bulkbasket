@@ -461,8 +461,8 @@ class WebApiController extends Controller
             ], 404);
         }
 
-        $product->details = DB::table("product_price")->where("product_id", $product->id)->get();
-
+        $product->tier = DB::table("product_price as a")->select('a.product_id','a.qty','a.price as final_price')
+        ->where("product_id", $product->id)->get();
         $web_token = $request->header('web_token') ?? session('web_token');
 
         if ($web_token) {
