@@ -140,9 +140,39 @@ Route::middleware([customerMobileMiddleware::class])->group(function () {
 Route::get('/web-test', function () {
     return response()->json(['message' => 'Web API is working']);
 });
+//web old change 
+Route::post('web/customer-login', [LoginController::class, 'customerLoginApi']);
+Route::post('web/send-otp', [LoginController::class, 'sendOtp']);
+Route::post('web/verify-otp', [LoginController::class, 'verifyOtp']);
+Route::post('web/forgot-password/send-otp', [LoginController::class, 'forgotSendOtp']);
+Route::post('web/forgot-password/verify-otp', [LoginController::class, 'forgotVerifyOtp']);
+Route::post('web/forgot-password/reset', [LoginController::class, 'forgotPWD']);
+Route::post('web/customer-signup', [LoginController::class, 'saveCustomerApi']);
+Route::get('web/get-category', [WebApiController::class, 'getCategory'])->name('web/get-category');
+Route::get('web/get-sub-category', [WebApiController::class, 'getSubCategory'])->name('web/get-sub-category');
+Route::get('web/get-sub-sub-category', [WebApiController::class, 'getSubSubCategory'])->name('web/get-sub-sub-category');
+Route::get('web/get-brands', [WebApiController::class, 'getBrands'])->name('web/get-brands');
+Route::get('web/get-brands/{id}/brands/{subcategoryId?}', [WebApiController::class, 'getBrandSubcategory']);
+Route::get('web/search-products', [WebApiController::class, 'getProducts'])->name('web/get-products');
+Route::get('web/get-all-products', [WebApiController::class, 'getAllProducts'])->name('web/get-all-products');
+Route::get('web/get-products-deal', [WebApiController::class, 'dealOnDay'])->name('web/get-products-deal');
+Route::get('web/get-slider', [WebApiController::class, 'SlidersApi'])->name('web/get-slider');
+Route::get('web/get-banner-deal-of-day', [WebApiController::class, 'dealofDayApi'])->name('web/get-banner-deal-of-day');
+Route::get('web/get-footer-banner', [WebApiController::class, 'FooterBannerApi'])->name('web/get-footer-banner');
+Route::get('web/get-brand-slider', [WebApiController::class, 'brandSliderApi'])->name('web/get-brand-slider');
+Route::get('web/get-product-detail/{id}', [WebApiController::class, 'ProductDetailsApi'])->name('web/get-product-detail');
+Route::get('web/get-faq', [WebApiController::class, 'faqCategory'])->name('web/get-faq');
+Route::get('web/quality-step', [WebApiController::class, 'qulityMainList'])->name('web/quality-step');
+Route::get('web/get-location', [WebApiController::class, 'getLocation'])->name('web/get-location');
+Route::get('web/get-refund', [WebApiController::class, 'refund'])->name('web/get-refund');
+Route::get('web/get-terms', [WebApiController::class, 'terms'])->name('web/get-terms');
+Route::get('web/get-privacy', [WebApiController::class, 'privacy'])->name('web/get-privacy');
+Route::get('web/get-order-delivery', [WebApiController::class, 'orderDelivery'])->name('web/get-order-delivery');
+
 Route::get('web/promotional-banner', [WebApiController::class, 'BannerApi'])->name('web/promotional-banner');
 Route::post('web/check-gst', [WebApiController::class, 'checkGSTApi'])->name('web/check-gst');
 Route::get('web/get-featured-product', [WebApiController::class, 'homeCategory'])->name('web/get-featured-product');
+
 Route::middleware([CustomerFrontend::class])->group(function () {
     Route::post('web/add-to-cart', [WebApiController::class, 'addToCart'])->name('web/add-to-cart');
     Route::get('web/get-cart', [WebApiController::class, 'getCart'])->name('web/get-cart');
@@ -153,9 +183,9 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::get('web/get-wishlist', [WebApiController::class, 'getWishList'])->name('web/get-wishlist');
     Route::post('web/update-profile', [WebApiController::class, 'updateProfile'])->name('web/update-profile');
     Route::get('web/get-profile', [WebApiController::class, 'getProfile'])->name('web/get-profile');
-    Route::get('web/get-company', [WebApiController::class, 'getCompany'])->name('web/get-company');        
+    Route::get('web/get-company', [WebApiController::class, 'getCompany'])->name('web/get-company');
     Route::post('web/update-company', [WebApiController::class, 'updateCompany'])->name('web/update-company');
-    Route::post('web/save-address', [WebApiController::class, 'saveAddress'])->name('web/save-address');    
+    Route::post('web/save-address', [WebApiController::class, 'saveAddress'])->name('web/save-address');
     Route::get('web/get-address', [WebApiController::class, 'getAddress'])->name('web/get-address');
     Route::post('web/update-default-address', [WebApiController::class, 'updateDefaultAddress'])->name('web/update-default-address');
     Route::get('web/get-states', [WebApiController::class, 'getStates'])->name('web/get-states');

@@ -23,8 +23,9 @@
                 </div>
             </div>
             <div class="card-body">
+                <div class="text-end"><button class="btn btn-sm btn-primary addfaq">Add Faq</button></div>
                 <table class="table dataTable">
-                    <thead>
+                    <thead> 
                         <tr>
                             <th>S.No</th>
                             <th>Category</th>
@@ -126,7 +127,7 @@
     </form>
 
     <script>
-        $(".add").on("click", function() {
+        $(".addfaq").on("click", function() {
             $("#modalTitleId").text("Add");
             $("#id").val("");
             $("#faq_cat_id").val("");

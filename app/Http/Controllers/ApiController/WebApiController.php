@@ -7,6 +7,7 @@ use App\Services\checkGST;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
 class WebApiController extends Controller
@@ -33,6 +34,701 @@ class WebApiController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+     public function getCategory(Request $request)
+    {
+        $categories = DB::table('product_category')
+            ->select('id', 'name', 'image')
+            ->where('supplier_id', 1)
+            ->orderBy('seq')
+            ->get();
+        return response()->json([
+            'status' => true,
+            'message' => 'Category list retrieved successfully.',
+            'data' => $categories
+        ]);
+    }
+
+    public function getSubCategory(Request $request)
+    {
+        $categories = DB::table('product_sub_category')
+            ->select('id', 'category_id', 'name', 'image')
+            ->where('supplier_id', 1)
+            ->get();
+        return response()->json([
+            'status' => true,
+            'message' => 'Sub Category list Retrieved Successfully.',
+            'data' => $categories
+        ]);
+    }
+
+    public function getSubSubCategory(Request $request)
+    {
+        $subcategories = DB::table('product_sub_sub_category')
+            ->select('id', 'category_id', 'sub_category_id', 'name', 'image')
+            ->where('supplier_id', 1)
+            ->get();
+        return response()->json([
+            'status' => true,
+            'message' => 'Sub Sub Category list Retrieved Successfully.',
+            'data' => $subcategories
+        ]);
+    }
+
+    public function getBrands(Request $request)
+    {
+        $brands = DB::table('product_brand')
+            ->select('id', 'name', 'image')
+            ->where('supplier_id', 1)
+            ->get();
+        return response()->json([
+            'status' => true,
+            'message' => 'Brands list retrieved successfully.',
+            'data' => $brands
+        ]);
+    }
+
+    public function getBrandSubcategory(Request $request, $id, $subcategoryId = null)
+    {
+        $query = DB::table('products as a')
+            ->select(
+                'a.*',
+                'b.name as uom',
+                'c.name as category',
+                'd.id as sub_category_id',
+                'd.name as sub_category'
+            )
+            ->join('product_uom as b', 'a.uom_id', '=', 'b.id')
+            ->join('product_category as c', 'a.category_id', '=', 'c.id')
+            ->join('product_sub_category as d', 'a.sub_category_id', '=', 'd.id')
+            ->where('a.active', 1)
+            ->where('a.brand_id', $id);
+
+        if ($subcategoryId) {
+            $query->where('a.sub_category_id', $subcategoryId);
+        }
+
+        $products = $query->get();
+
+        $subcategories = $products->map(function ($p) {
+            return [
+                'id' => $p->sub_category_id,
+                'name' => $p->sub_category,
+            ];
+        })->unique('id')->values();
+
+        return response()->json([
+            'products' => $products,
+            'subcategories' => $subcategories
+        ]);
+    }
+
+    public function getProducts(Request $request)
+    {
+        $query = trim($request->input("query"));
+
+        if (!$query) {
+            return response()->json([
+                'status' => true,
+                'message' => 'No query provided',
+                'data' => []
+            ]);
+        }
+
+        // 🧩 Step 1: Initial Search (normal LIKE search)
+        $productsQuery = DB::table("products as a")
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                "e.name as brand"
+            )
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+            ->where("a.active", 1)
+            ->where(function ($q) use ($query) {
+                $q->where('a.name', 'like', '%' . $query . '%')
+                    ->orWhere('a.tags', 'like', '%' . $query . '%');
+            });
+
+        $products = $productsQuery->limit(20)->get();
+
+        // 🧠 Step 2: If no products found → use AI to correct query
+        if ($products->isEmpty()) {
+            try {
+                $apiKey = config('services.openai.key');
+                $prompt = "The user searched for '{$query}'. Suggest the most likely correct English product search word. 
+            Return only the corrected word (no extra text). Example:
+            Input: chini
+            Output: sugar";
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Content-Type' => 'application/json',
+                ])->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => 'gpt-3.5-turbo',
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You are a spelling correction assistant for an e-commerce product search.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                    'temperature' => 0.2,
+                ]);
+
+                $aiContent = trim($response->json()['choices'][0]['message']['content'] ?? '');
+
+                if ($aiContent && strtolower($aiContent) !== strtolower($query)) {
+                    $correctedQuery = $aiContent;
+
+                    $products = DB::table("products as a")
+                        ->select(
+                            "a.*",
+                            "b.name as uom",
+                            "c.name as category",
+                            "d.name as sub_category",
+                            "e.name as brand"
+                        )
+                        ->join("product_uom as b", "a.uom_id", "b.id")
+                        ->join("product_category as c", "a.category_id", "c.id")
+                        ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+                        ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+                        ->where("a.active", 1)
+                        ->where(function ($q) use ($correctedQuery) {
+                            $q->where('a.name', 'like', '%' . $correctedQuery . '%')
+                                ->orWhere('a.tags', 'like', '%' . $correctedQuery . '%')
+                                ->orWhere('a.description', 'like', '%' . $correctedQuery . '%');
+                        })
+                        ->limit(20)
+                        ->get();
+
+                    return response()->json([
+                        'status' => true,
+                        'message' => 'Search completed (auto-corrected)',
+                        'corrected_query' => $correctedQuery,
+                        'data' => $products,
+                    ]);
+                }
+            } catch (\Exception $e) {
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Products retrieved successfully.',
+            'data' => $products,
+        ]);
+    }
+
+
+    public function getAllProducts()
+    {
+        $category_id = request("category_id");
+        $sub_category_id = request("sub_category_id");
+        $sub_sub_category_id = request("sub_sub_category_id");
+        $brand_id = request("brand_id");
+        $query = request("search");
+
+        $customer_id = "";
+
+        $categories = DB::table("product_category")->get();
+
+        $subCategories = DB::table("product_sub_category")
+            ->where("category_id", $category_id)
+            ->get();
+        $prod = DB::table("products as a")
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                "e.name as sub_sub_category"
+            )
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->leftJoin("product_sub_sub_category as e", "a.product_sub_sub_category", "e.id")
+            ->where("a.active", 1);
+        if ($category_id) {
+            $prod->where("a.category_id", $category_id);
+        }
+        if ($sub_category_id) {
+            $prod->where("a.sub_category_id", $sub_category_id);
+        }
+        if ($sub_sub_category_id) {
+            $subSubIds = explode(',', $sub_sub_category_id);
+            $prod->whereIn("a.product_sub_sub_category", $subSubIds);
+        }
+        if ($brand_id) {
+            $prod->where("a.brand_id", $brand_id);
+        }
+        if ($query) {
+            $prod->where(function ($q) use ($query) {
+                $q->where('a.name', 'like', '%' . $query . '%')
+                    ->orWhere('a.description', 'like', '%' . $query . '%')
+                    ->orWhere('c.name', 'like', '%' . $query . '%')
+                    ->orWhere('d.name', 'like', '%' . $query . '%')
+                    ->orWhere('e.name', 'like', '%' . $query . '%')
+                    ->orWhere('a.tags', 'like', '%' . $query . '%');
+            });
+        }
+        $products = $prod->paginate(250);
+        foreach ($products as $key => $value) {
+            $details = DB::table("product_price")
+                ->where("product_id", $value->id)
+                ->orderBy("qty", "asc")
+                ->get();
+            if ($details->count() > 0) {
+                foreach ($details as $dkey => $dvalue) {
+                    $details[$dkey]->final_price = $dvalue->price;
+                }
+                $lastIndex = $details->count() - 1;
+                if ($value->is_discount == 1 && $value->discount > 0) {
+                    $highest = $details[$lastIndex];
+                    $discountAmount = ($highest->price * $value->discount) / 100;
+                    $details[$lastIndex]->final_price = round($highest->price - $discountAmount, 2);
+                }
+                $products[$key]->final_price = null;
+            } else {
+                if ($value->is_discount == 1 && $value->discount > 0) {
+                    $discountAmount = ($value->base_price * $value->discount) / 100;
+                    $products[$key]->final_price = round($value->base_price - $discountAmount, 2);
+                } else {
+                    $products[$key]->final_price = $value->base_price;
+                }
+            }
+            $products[$key]->details = $details;
+            if ($customer_id) {
+                $cartItem = DB::table("cart")
+                    ->where("product_id", $value->id)
+                    ->where("customer_id", $customer_id)
+                    ->first();
+                $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
+            } else {
+                $products[$key]->cart_qty = 0;
+            }
+        }
+        return $products;
+    }
+
+     public function dealOnDay(Request $request)
+    {
+        $category_id = $request->category_id;
+        $sub_category_id = $request->sub_category_id;
+
+        $query = DB::table("products as a")
+            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->where("a.active", 1)
+            ->where("a.is_deal", 1);
+
+        if ($category_id) {
+            $query->where("a.category_id", $category_id);
+        }
+
+        if ($sub_category_id) {
+            $query->where("a.sub_category_id", $sub_category_id);
+        }
+        $products = $query->get();
+
+        foreach ($products as $key => $value) {
+            $details = DB::table("product_price")
+                ->where("product_id", $value->id)
+                ->orderBy("qty", "asc")
+                ->get();
+            if ($details->count() > 0) {
+                foreach ($details as $dkey => $dvalue) {
+                    $details[$dkey]->final_price = $dvalue->price;
+                }
+                $lastIndex = $details->count() - 1;
+                if ($value->is_discount == 1 && $value->discount > 0) {
+                    $highest = $details[$lastIndex];
+                    $discountAmount = ($highest->price * $value->discount) / 100;
+                    $details[$lastIndex]->final_price = round($highest->price - $discountAmount, 2);
+                }
+                $products[$key]->final_price = null;
+            } else {
+                if ($value->is_discount == 1 && $value->discount > 0) {
+                    $discountAmount = ($value->base_price * $value->discount) / 100;
+                    $products[$key]->final_price = round($value->base_price - $discountAmount, 2);
+                } else {
+                    $products[$key]->final_price = $value->base_price;
+                }
+            }
+            $products[$key]->details = $details;
+            if ($category_id) {
+                $cartItem = DB::table("cart")
+                    ->where("product_id", $value->id)
+                    ->where("customer_id", $category_id)
+                    ->first();
+                $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
+            } else {
+                $products[$key]->cart_qty = 0;
+            }
+        }
+        return $products;
+    }
+
+     public function SlidersApi(Request $request)
+    {
+        try {
+            $data = DB::table("sliders")->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching sliders',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getproduct(Request $request)
+    {
+        $customer_id = $request->user['customer_id'] ?? null;
+
+        if (!$customer_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Customer ID not found in request.',
+            ], 401);
+        }
+
+        // Get wishlist product IDs
+        $wishlistIds = DB::table('wishlist')
+            ->where('customer_id', $customer_id)
+            ->pluck('product_id');
+
+        if ($wishlistIds->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
+        }
+
+        // Fetch products in wishlist
+        $products = DB::table('products as a')
+            ->select('a.*', 'b.name as uom', 'c.name as category', 'd.name as sub_category')
+            ->join('product_uom as b', 'a.uom_id', 'b.id')
+            ->join('product_category as c', 'a.category_id', 'c.id')
+            ->join('product_sub_category as d', 'a.sub_category_id', 'd.id')
+            ->whereIn('a.id', $wishlistIds)
+            ->where('a.active', 1)
+            ->get();
+
+        // Add details and cart quantity
+        foreach ($products as $key => $product) {
+            $products[$key]->details = DB::table('product_price')
+                ->where('product_id', $product->id)
+                ->get();
+
+            $cartItem = DB::table('cart')
+                ->where('product_id', $product->id)
+                ->where('customer_id', $customer_id)
+                ->first();
+
+            $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
+    }
+
+    public function ProductDetailsApi(Request $request, $id)
+    {
+        $product = DB::table("products as a")
+            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->where("a.id", $id)
+            ->where("a.active", 1)
+            ->first();
+
+        if (!$product) {
+            return response()->json([
+                "status" => false,
+                "message" => "Product not found"
+            ], 404);
+        }
+
+        $product->details = DB::table("product_price")->where("product_id", $product->id)->get();
+
+        $web_token = $request->header('web_token') ?? session('web_token');
+
+        if ($web_token) {
+            $customer = DB::table("customer_users")->where("web_token", $web_token)->first();
+            if ($customer) {
+                $cart = DB::table("cart")
+                    ->where("customer_id", $customer->customer_id)
+                    ->where("product_id", $id)
+                    ->first();
+
+                if ($cart) {
+                    foreach ($product->details as $tier) {
+                        if ($cart->qty >= $tier->qty) {
+                            $product->mrp = $tier->price;
+                        }
+                    }
+                }
+            }
+        }
+
+        $supplier = DB::table("suppliers")->where("id", $product->supplier_id)->first();
+
+        $related_products = DB::table("products as a")
+            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->where("a.sub_category_id", $product->sub_category_id)
+            ->where("a.active", 1)
+            ->get();
+
+        $images = DB::table("product_images")->where("product_id", $id)->get();
+
+        return response()->json([
+            "status" => true,
+            "message" => "Product details fetched successfully",
+            "data" => [
+                "product" => $product,
+                "supplier" => $supplier,
+                "related_products" => $related_products,
+                "images" => $images
+            ]
+        ], 200);
+    }
+
+     public function dealofDayApi(Request $request)
+    {
+        try {
+            $data = DB::table("sliders3")->orderBy("id", "desc")->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching sliders',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function brandSliderApi(Request $request)
+    {
+        try {
+            $data = DB::table("sliders4")->orderBy("id", "desc")->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching sliders',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function FooterBannerApi(Request $request)
+    {
+        try {
+            $data = DB::table("sliders2")->orderBy("id", "desc")->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching sliders',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function faqCategory(Request $request)
+    {
+        $faq_category = DB::table("faq_category")->orderBy("seq")->get();
+        $data = DB::table("main_faq as f")
+            ->join("faq_category as c", "f.faq_cat_id", "=", "c.id")
+            ->select("f.*", "c.name as category_name")
+            ->get();
+        return response()->json([
+            'success' => true,
+            'faq_category' => $faq_category,
+            'faqs' => $data
+        ]);
+    }
+
+    public function qulityMainList(Request $request)
+    {
+        try {
+            $data = DB::table("quality_step")->get();
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    public function getLocation(Request $request)
+    {
+        try {
+
+            // ✅ LOGIN USER LOCATION (FROM DB)
+            if ($request->customer_id) {
+
+                $customer = DB::table('customers')
+                    ->where('id', $request->customer_id)
+                    ->first();
+
+                if ($customer) {
+
+                    $locationParts = array_filter([
+                        $customer->address,
+                        $customer->city,
+                        $customer->district,
+                        $customer->state,
+                        $customer->pincode,
+                    ]);
+
+                    return response()->json([
+                        'user_location' => implode(', ', $locationParts),
+                        'source' => 'customer_table',
+                    ]);
+                }
+            }
+
+            // ✅ GUEST USER → GOOGLE MAP LOCATION
+            $lat = $request->lat;
+            $lng = $request->lng;
+
+            if (!$lat || !$lng) {
+                return response()->json([
+                    'error' => 'Latitude and longitude required'
+                ], 400);
+            }
+
+            $apiKey = config('services.google.map_key');
+
+            $response = Http::get(
+                'https://maps.googleapis.com/maps/api/geocode/json',
+                [
+                    'latlng' => $lat . ',' . $lng,
+                    'key' => $apiKey,
+                ]
+            );
+
+            $data = $response->json();
+
+            if (($data['status'] ?? '') !== 'OK') {
+                return response()->json([
+                    'error' => 'Google location failed',
+                    'google_status' => $data['status'] ?? null
+                ], 400);
+            }
+
+            return response()->json([
+                'user_location' => $data['results'][0]['formatted_address'] ?? null,
+                'source' => 'google_map',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Location fetch failed',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function refund()
+    {
+        $refund = DB::table('pages')->where('id', 1)->first();
+
+        if (!$refund) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Refund policy not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data' => $refund
+        ]);
+    }
+
+    public function terms()
+    {
+        $term = DB::table('pages')->where('id', 2)->first();
+
+        if (!$term) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Terms & Conditions not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data' => $term
+        ]);
+    }
+
+    public function privacy()
+    {
+        $privacy = DB::table('pages')->where('id', 3)->first();
+
+        if (!$privacy) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Privacy policy not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data' => $privacy
+        ]);
+    }
+
+    public function orderDelivery()
+    {
+        $privacy = DB::table('pages')->where('id', 5)->first();
+
+        if (!$privacy) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Privacy policy not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data' => $privacy
+        ]);
     }
 
     public function checkGSTApi(Request $request)
