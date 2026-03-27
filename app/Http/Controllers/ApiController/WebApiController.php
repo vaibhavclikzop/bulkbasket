@@ -243,11 +243,13 @@ class WebApiController extends Controller
                 "b.name as uom",
                 "c.name as category",
                 "d.name as sub_category",
-                "e.name as sub_sub_category"
+                "e.name as sub_sub_category",
+                "f.name as product_type"
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->join("product_type as f", "a.product_type_id", "f.id")
             ->leftJoin("product_sub_sub_category as e", "a.product_sub_sub_category", "e.id")
             ->where("a.active", 1);
         if ($category_id) {
@@ -445,12 +447,13 @@ class WebApiController extends Controller
 
     public function ProductDetailsApi(Request $request, $id)
     {
-       
+
         $product = DB::table("products as a")
-            ->select("a.*","a.base_price as final_price", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->select("a.*", "a.base_price as final_price", "b.name as uom", "c.name as category", "d.name as sub_category","f.name as product_type")
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->join("product_type as f", "a.product_type_id", "f.id")
             ->where("a.id", $id)
             ->where("a.active", 1)
             ->first();
@@ -506,8 +509,8 @@ class WebApiController extends Controller
             ]
         ], 200);
     }
-    
-     public function getProductDetails(Request $request, $product_id)
+
+    public function getProductDetails(Request $request, $product_id)
     {
         try {
 

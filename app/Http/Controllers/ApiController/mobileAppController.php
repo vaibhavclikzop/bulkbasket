@@ -271,6 +271,7 @@ class mobileAppController extends Controller
                         ->where("a.supplier_id", $request->user["supplier_id"]);
                 })
                 ->join("product_sub_category as psc", "a.sub_category_id", "psc.id")
+                ->join("product_type as pt", "a.product_type_id", "pt.id")
                 ->where("a.is_home", 1)
                 ->where("a.active", 1);
 
@@ -280,6 +281,7 @@ class mobileAppController extends Controller
                 "a.gst",
                 "a.cess_tax",
                 "a.mrp",
+                "pt.name as product_type",
                 "psc.name as sub_category",
                 DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                 DB::raw("
@@ -344,6 +346,7 @@ class mobileAppController extends Controller
                     "cess_tax" => $product->cess_tax,
                     "price" => $product->price,
                     "mrp" => $product->mrp,
+                    "product_type" => $product->product_type,
                     "discount" => $product->mrp > 0
                         ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
                         : 0,
@@ -472,25 +475,33 @@ class mobileAppController extends Controller
     public function updateProfile(Request $request)
     {
         try {
+            $request->validate([
+                'name' => 'nullable',
+                'email' => 'nullable',
+            ]);
             $user = DB::table("customer_users")
                 ->where("id", $request->user["id"])
                 ->first();
+
             if (!$user) {
                 return response()->json([
                     'error' => true,
                     'message' => "User not found",
                     "data" => []
-                ], 422);
+                ], 404);
             }
-            $customer =  DB::table("customers as a")
+            $customer = DB::table("customers as a")
+                ->join("customer_users as b", "a.id", "b.customer_id")
+                ->where("b.id", $request->user["id"])
                 ->select("a.*")
-                ->join("customer_users as b", "a.id", "b.customer_id")->where("b.id", $request->user["id"])->first();
-            $image = "";
+                ->first();
+            $image = $customer->image ?? null;
             if ($request->hasFile('image')) {
-                $image = time() . '.' . $request->file('image')->extension();
+                if (!empty($image) && file_exists(public_path('customer/' . $image))) {
+                    unlink(public_path('customer/' . $image));
+                }
+                $image = time() . '_' . uniqid() . '.' . $request->file('image')->extension();
                 $request->file('image')->move(public_path('customer'), $image);
-            } else {
-                $image = $customer->image;
             }
             DB::table("customer_users")
                 ->where("id", $request->user["id"])
@@ -502,27 +513,28 @@ class mobileAppController extends Controller
                     "district" => $request->district ?? $user->district,
                     "city" => $request->city ?? $user->city,
                     "pincode" => $request->pincode ?? $user->pincode,
-
                 ]);
             DB::table("customers")
-                ->where("id", $request->user["id"])
+                ->where("id", $customer->id)
                 ->update([
                     "image" => $image
                 ]);
             $updatedUser = DB::table("customer_users")
                 ->where("id", $request->user["id"])
                 ->first();
+
             return response()->json([
                 'error' => false,
                 'message' => "Profile Updated Successfully",
                 "data" => $updatedUser
             ], 200);
         } catch (\Throwable $th) {
+
             return response()->json([
                 'error' => true,
                 'message' => $th->getMessage(),
                 "data" => []
-            ], 422);
+            ], 500);
         }
     }
 
@@ -704,7 +716,7 @@ class mobileAppController extends Controller
                             ->where("b.customer_id", $request->user["customer_id"])
                             ->where("a.supplier_id", $request->user["supplier_id"]);
                     })
-
+                    ->join('product_type as pt', 'a.product_type_id', 'pt.id')
                     ->where("a.sub_category_id", $sub->id)
                     ->where("a.active", 1);
                 if ($sub_category_id) {
@@ -723,6 +735,7 @@ class mobileAppController extends Controller
                     "a.gst",
                     "a.cess_tax",
                     "a.mrp",
+                    "pt.name as product_type",
                     "a.product_sub_sub_category",
                     DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                     DB::raw("
@@ -776,6 +789,7 @@ class mobileAppController extends Controller
                         "cess_tax" => $product->cess_tax,
                         "price" => $product->price,
                         "mrp" => $product->mrp,
+                        "product_type" => $product->product_type,
                         "discount" => $product->mrp > 0
                             ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
                             : 0,
@@ -1208,6 +1222,7 @@ class mobileAppController extends Controller
         try {
             $wishlist = DB::table("wishlist as c")
                 ->join("products as p", "c.product_id", "p.id")
+                ->join("product_type as pt", "p.product_type_id", "pt.id")
                 ->where("c.customer_id", $request->user["customer_id"])
                 ->select(
                     "c.id",
@@ -1216,6 +1231,7 @@ class mobileAppController extends Controller
                     "p.name",
                     "p.mrp",
                     "p.gst",
+                    "pt.name as product_type",
                     "p.cess_tax",
                     DB::raw("
             CASE 
@@ -1450,6 +1466,7 @@ class mobileAppController extends Controller
                         ->where("b.customer_id", $request->user["customer_id"])
                         ->where("a.supplier_id", $request->user["supplier_id"]);
                 })
+                ->join('product_type as pt', 'a.product_type_id', 'pt.id')
                 ->where("a.id", $product_id)
                 ->where("a.active", 1)
                 ->select(
@@ -1459,6 +1476,7 @@ class mobileAppController extends Controller
                     "a.cess_tax",
                     "a.description",
                     "a.mrp",
+                    "pt.name as product_type",
                     DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                     DB::raw("
                     CASE 
@@ -1467,9 +1485,9 @@ class mobileAppController extends Controller
                         ELSE NULL 
                     END as image
                 ")
+
                 )
                 ->first();
-
             if (!$product) {
                 return response()->json([
                     "error" => true,
@@ -1519,6 +1537,8 @@ class mobileAppController extends Controller
                 "cess_tax" => $product->cess_tax,
                 "price" => $product->price,
                 "mrp" => $product->mrp,
+                "mrp" => $product->mrp,
+                "product_type" => $product->product_type,
                 "discount" => $product->mrp > 0
                     ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
                     : 0,
