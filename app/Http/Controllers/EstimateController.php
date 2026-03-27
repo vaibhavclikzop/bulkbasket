@@ -10,12 +10,29 @@ class EstimateController extends Controller
 {
     public function createEstimate(Request $request)
     {
-
         $data = DB::table('customers')->where("supplier_id", $request->user["supplier_id"])->where("active", 1)->get();
         return view("suppliers.create-estimate", compact("data"));
     }
 
-
+    public function getCustomerAddress($id)
+    {
+        $customer = DB::table("customers")
+            ->where("id", $id)
+            ->first();
+        if (!$customer) {
+            return response()->json([
+                "status" => false,
+                "message" => "Customer not found"
+            ]);
+        }
+        return response()->json([
+            "status" => true,
+            "address" => $customer->address,
+            "state" => $customer->state,
+            "district" => $customer->district,
+            "city" => $customer->city,
+        ]);
+    }
 
     public function saveEstimate(Request $request)
     {
@@ -26,7 +43,7 @@ class EstimateController extends Controller
             'state' => 'required',
             'district' => 'required',
             'city' => 'required',
-            "customer_id"=>'required',
+            "customer_id" => 'required',
             'pay_mode' => 'required',
         ]);
 
@@ -180,7 +197,7 @@ class EstimateController extends Controller
 
             DB::commit();
 
-                    return redirect()->back()->with('success', "Save Successfully");
+            return redirect()->back()->with('success', "Save Successfully");
         } catch (\Throwable $th) {
             DB::rollBack();
             return redirect()->back()->with('error', $th->getMessage());

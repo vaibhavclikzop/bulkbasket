@@ -14,7 +14,8 @@
             </div>
         </div>
         <div class="card-body">
-            <form action="{{ route('supplier/saveEstimate') }}" method="POST" class="needs-validation" novalidate id="frmMain">
+            <form action="{{ route('supplier/saveEstimate') }}" method="POST" class="needs-validation" novalidate
+                id="frmMain">
                 @csrf
                 <div class="d-flex">
                     <div>
@@ -41,37 +42,6 @@
                             <option value="Online">Online</option>
                         </select>
                     </div>
-                    <div class="mx-2" style="width: 55%">
-                        <label for="">Address</label>
-                        <input type="text" placeholder="Enter Address" name="address" id="address"
-                            class="form-control"required>
-                    </div>
-
-                </div>
-                <div class="d-flex mt-2">
-
-
-                    <div class="">
-                        <label for="">Select State</label>
-                        <select name="state" id="state" class="form-control" required>
-                            <option value="">Select State</option>
-                            @foreach ($state as $item)
-                                <option value="{{ $item->state }}"> {{ $item->state }}</option>
-                            @endforeach
-
-                        </select>
-                    </div>
-                    <div class="mx-2">
-                        <label for="">District</label>
-                        <select name="district" id="district" class="form-control" required>
-                            <option value="">Select District</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="">City</label>
-                        <input type="text" name="city" id="city" class="form-control" required
-                            placeholder="Enter City">
-                    </div>
                     <div class="mx-2 " style="width: 60%">
                         <label for="">Remarks</label>
                         <input type="text" name="remarks" id="remarks" class="form-control" required
@@ -80,7 +50,70 @@
                     </div>
 
                 </div>
+                <div class="mt-3">
+                    <h6>Billing Address</h6>
+                    <div class="d-flex ">
+                        <div class="">
+                            <label for="">Select State</label>
+                            <select name="billing_state"   class="form-control state" disabled>
+                                <option value="">Select State</option>
+                                @foreach ($state as $item)
+                                    <option value="{{ $item->state }}"> {{ $item->state }}</option>
+                                @endforeach
 
+                            </select>
+                        </div>
+                        <div class="mx-2">
+                            <label for="">District</label>
+                            <select name="billing_district"   class="form-control district" disabled>
+                                <option value="">Select District</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="">City</label>
+                            <input type="text" name="billing_city"   class="form-control city" disabled
+                                placeholder="Enter City">
+                        </div>
+                        <div class="mx-2" style="width: 55%">
+                            <label for="">Address</label>
+                            <input type="text" placeholder="Enter Address" name="billing_address"  
+                                class="form-control address" disabled>
+                        </div>
+
+                    </div>
+                </div>  
+                <div class="mt-3 mb-4">
+                    <h6>Shipping Address</h6>
+                    <div class="d-flex ">
+                        <div class="">
+                            <label for="">Select State</label>
+                            <select name="state" id="state" class="form-control state" required>
+                                <option value="">Select State</option>
+                                @foreach ($state as $item)
+                                    <option value="{{ $item->state }}"> {{ $item->state }}</option>
+                                @endforeach
+
+                            </select>
+                        </div>
+                        <div class="mx-2">
+                            <label for="">District</label>
+                            <select name="district" id="district" class="form-control district" required>
+                                <option value="">Select District</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="">City</label>
+                            <input type="text" name="city" id="city" class="form-control city" required
+                                placeholder="Enter City">
+                        </div>
+                        <div class="mx-2" style="width: 55%">
+                            <label for="">Address</label>
+                            <input type="text" placeholder="Enter Address" name="address" id="address"
+                                class="form-control address"required>
+                        </div>
+
+                    </div>
+                </div>  
                 <div class="mt-2">
                     <div class="d-flex ">
                         <div class="col-md-2" style="width: 235px !important"><label for="">Product
@@ -261,27 +294,52 @@
             $("#customer_id, #product_id").select2({
                 width: "100%"
             });
-
             $("#customer_id").on("change", function() {
-
                 $("#product_id").removeAttr("disabled");
+                let customer_id = $(this).val();
+
+                if (customer_id == '') {
+                    $('.state').val('');
+                    $('.district').val('');
+                    $('.city').val('');
+                    $('.address').val('');
+                    return;
+                }
+                $.ajax({
+                    url: '/customer-address/' + customer_id,
+                    type: 'GET',
+                    success: function(response) {
+
+                        if (response.status) {
+
+                            $('.state').val(response.state);
+                            $('.district').html(
+                                `<option value="${response.district}">${response.district}</option>`
+                            );
+                            $('.city').val(response.city);
+                            $('.address').val(response.address);
+
+                        } else {
+                            alert(response.message);
+                        }
+                    }
+                });
 
             })
-
             $("#product_id").select2({
                 width: "100%",
                 placeholder: "Search Product",
-                minimumInputLength: 2, // Important for performance
+                minimumInputLength: 2,  
                 ajax: {
                     url: "/supplier/getOrderProducts",
                     type: "POST",
-                    delay: 300, // Debounce (very important)
+                    delay: 300,  
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                     },
                     data: function(params) {
                         return {
-                            search: params.term, // typed text
+                            search: params.term,  
                             customer_id: $("#customer_id").val()
                         };
                     },

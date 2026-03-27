@@ -213,6 +213,7 @@ Route::middleware([Suppliers::class])->group(function () {
 
     // Order Estimate
     Route::get('supplier/create-estimate', [EstimateController::class, 'createEstimate'])->name('supplier/create-estimate');
+    Route::get('customer-address/{id}', [EstimateController::class, 'getCustomerAddress']);
     Route::post('supplier/saveEstimate', [EstimateController::class, 'saveEstimate'])->name('supplier/saveEstimate');
 
 

@@ -107,9 +107,16 @@ class CustomerProductPrice extends Controller
         }
 
         try {
-            $data =  DB::table("products as a")
-                ->where("a.name", "LIke", "%{$request->search}%")
-                ->where("a.supplier_id", $request->user["supplier_id"])->get();
+            $query = DB::table("products as a")
+                ->where("a.supplier_id", $request->user["supplier_id"]);
+
+            $words = explode(' ', strtolower($request->search));
+
+            foreach ($words as $word) {
+                $query->whereRaw("LOWER(a.name) LIKE ?", ["%$word%"]);
+            }
+
+            $data = $query->get();
 
             if ($data) {
                 return response()->json(["error" => false, "msg" => "Success", "data" => $data], 200);
@@ -193,8 +200,8 @@ class CustomerProductPrice extends Controller
                     ->where("qty", "<=", $request->qty)
                     ->orderBy("qty", "desc")
                     ->first();
-                    
-        
+
+
                 if (!$productPrice) {
 
                     $productPrice = DB::table("customers_products_list")
@@ -202,14 +209,13 @@ class CustomerProductPrice extends Controller
                         ->where("customer_id", $request->customer_id)
                         ->where("product_id", $request->product_id)
                         ->first();
-                       
+
 
                     if (!$productPrice) {
                         $productPrice = DB::table("products")
                             ->select("base_price as price")
                             ->where("id", $request->product_id)
                             ->first();
-                          
                     }
                 }
             }
