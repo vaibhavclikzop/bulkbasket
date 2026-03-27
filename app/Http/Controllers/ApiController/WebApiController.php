@@ -244,7 +244,14 @@ class WebApiController extends Controller
                 "c.name as category",
                 "d.name as sub_category",
                 "e.name as sub_sub_category",
-                "f.name as product_type"
+                "f.name as product_type",
+                DB::raw("
+                    CASE 
+                        WHEN a.mrp > 0 
+                        THEN ROUND(((a.mrp - a.base_price) / a.mrp) * 100, 2)
+                        ELSE 0 
+                    END as discount
+                ")
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
@@ -277,35 +284,44 @@ class WebApiController extends Controller
         }
         $products = $prod->paginate(250);
         foreach ($products as $key => $value) {
+
             $details = DB::table("product_price")
                 ->where("product_id", $value->id)
                 ->orderBy("qty", "asc")
                 ->get();
+            $final_price = null;
             if ($details->count() > 0) {
+
                 foreach ($details as $dkey => $dvalue) {
                     $details[$dkey]->final_price = $dvalue->price;
                 }
                 $lastIndex = $details->count() - 1;
+                $highest = $details[$lastIndex];
                 if ($value->is_discount == 1 && $value->discount > 0) {
-                    $highest = $details[$lastIndex];
                     $discountAmount = ($highest->price * $value->discount) / 100;
-                    $details[$lastIndex]->final_price = round($highest->price - $discountAmount, 2);
+                    $final_price = round($highest->price - $discountAmount, 2);
+
+                    $details[$lastIndex]->final_price = $final_price;
+                } else {
+                    $final_price = $highest->price;
                 }
-                $products[$key]->final_price = null;
             } else {
+
                 if ($value->is_discount == 1 && $value->discount > 0) {
                     $discountAmount = ($value->base_price * $value->discount) / 100;
-                    $products[$key]->final_price = round($value->base_price - $discountAmount, 2);
+                    $final_price = round($value->base_price - $discountAmount, 2);
                 } else {
-                    $products[$key]->final_price = $value->base_price;
+                    $final_price = $value->base_price;
                 }
             }
+            $products[$key]->final_price = $final_price;
             $products[$key]->details = $details;
             if ($customer_id) {
                 $cartItem = DB::table("cart")
                     ->where("product_id", $value->id)
                     ->where("customer_id", $customer_id)
                     ->first();
+
                 $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
             } else {
                 $products[$key]->cart_qty = 0;
@@ -449,7 +465,13 @@ class WebApiController extends Controller
     {
 
         $product = DB::table("products as a")
-            ->select("a.*", "a.base_price as final_price", "b.name as uom", "c.name as category", "d.name as sub_category","f.name as product_type")
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                "f.name as product_type"
+            )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
@@ -457,33 +479,51 @@ class WebApiController extends Controller
             ->where("a.id", $id)
             ->where("a.active", 1)
             ->first();
-
         if (!$product) {
             return response()->json([
                 "status" => false,
                 "message" => "Product not found"
             ], 404);
         }
+        $details = DB::table("product_price")
+            ->where("product_id", $product->id)
+            ->orderBy("qty", "asc")
+            ->get();
+        $product->details = $details;
+        $final_price = $product->base_price;
+        if ($details->count() > 0) {
 
-        $product->details = DB::table("product_price")->where("product_id", $product->id)->get();
-        $web_token = $request->header('web_token') ?? session('web_token');
-        if ($web_token) {
-            $customer = DB::table("customer_users")->where("web_token", $web_token)->first();
-            if ($customer) {
-                $cart = DB::table("cart")
-                    ->where("customer_id", $customer->customer_id)
-                    ->where("product_id", $id)
-                    ->first();
+            $last = $details->last(); 
+            $web_token = $request->header('web_token') ?? session('web_token');
 
-                if ($cart) {
-                    foreach ($product->details as $tier) {
-                        if ($cart->qty >= $tier->qty) {
-                            $product->mrp = $tier->price;
+            if ($web_token) {
+                $customer = DB::table("customer_users")->where("web_token", $web_token)->first();
+
+                if ($customer) {
+                    $cart = DB::table("cart")
+                        ->where("customer_id", $customer->customer_id)
+                        ->where("product_id", $id)
+                        ->first();
+                    if ($cart) {
+                        foreach ($details as $tier) {
+                            if ($cart->qty >= $tier->qty) {
+                                $final_price = $tier->price;  
+                            }
                         }
                     }
                 }
+            } 
+            if ($product->is_discount == 1 && $product->discount > 0) {
+                $discountAmount = ($final_price * $product->discount) / 100;
+                $final_price = round($final_price - $discountAmount, 2);
             }
-        }
+        } else { 
+            if ($product->is_discount == 1 && $product->discount > 0) {
+                $discountAmount = ($product->base_price * $product->discount) / 100;
+                $final_price = round($product->base_price - $discountAmount, 2);
+            }
+        } 
+        $product->final_price = $final_price;
 
         $supplier = DB::table("suppliers")->where("id", $product->supplier_id)->first();
 
@@ -495,9 +535,7 @@ class WebApiController extends Controller
             ->where("a.sub_category_id", $product->sub_category_id)
             ->where("a.active", 1)
             ->get();
-
         $images = DB::table("product_images")->where("product_id", $id)->get();
-
         return response()->json([
             "status" => true,
             "message" => "Product details fetched successfully",
@@ -1702,7 +1740,6 @@ class WebApiController extends Controller
             ], 422);
         }
     }
-
 
     public function deleteAddress(Request $request)
     {
