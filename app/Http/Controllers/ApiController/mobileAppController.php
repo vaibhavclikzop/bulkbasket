@@ -1242,7 +1242,7 @@ class mobileAppController extends Controller
                     DB::raw("
                     CASE 
                         WHEN p.image IS NOT NULL AND p.image != '' 
-                        THEN CONCAT('https://store.bulkbasketindia.com/product_images/', p.image) 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image) 
                         ELSE NULL 
                     END as image
                 ")
