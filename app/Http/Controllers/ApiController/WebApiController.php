@@ -915,7 +915,10 @@ class WebApiController extends Controller
                         ->where("b.customer_id", $customer_id)
                         ->where("a.supplier_id", $supplier_id);
                 })
+                ->join("product_category as pc", "a.category_id", "pc.id")
                 ->join("product_sub_category as psc", "a.sub_category_id", "psc.id")
+                ->join("product_sub_sub_category as pssc", "a.product_sub_sub_category", "pssc.id")
+                ->join('product_type as pt', 'a.product_type_id', 'pt.id')
                 ->where("a.is_home", 1)
                 ->where("a.active", 1);
             $products = $filter->select(
@@ -924,7 +927,10 @@ class WebApiController extends Controller
                 "a.gst",
                 "a.cess_tax",
                 "a.mrp",
+                "pt.name as product_type",
+                "pc.name as category_name",
                 "psc.name as sub_category",
+                "pssc.name as sub_subcategory",
                 DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                 DB::raw("
                         CASE 
@@ -972,7 +978,11 @@ class WebApiController extends Controller
                     "gst" => $product->gst,
                     "cess_tax" => $product->cess_tax,
                     "price" => $product->price,
+                    "category" => $product->category_name,
+                    "sub_category" => $product->sub_category,
+                    "sub_subcategory" => $product->sub_subcategory,
                     "mrp" => $product->mrp,
+                    "product_type" => $product->product_type,
                     "discount" => $product->mrp > 0
                         ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
                         : 0,

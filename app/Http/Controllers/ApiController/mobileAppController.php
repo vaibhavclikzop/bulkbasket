@@ -1220,28 +1220,70 @@ class mobileAppController extends Controller
     public function getWishList(Request $request)
     {
         try {
+
+            $customer_id = $request->user["customer_id"];
+
             $wishlist = DB::table("wishlist as c")
                 ->join("products as p", "c.product_id", "p.id")
                 ->join("product_type as pt", "p.product_type_id", "pt.id")
-                ->where("c.customer_id", $request->user["customer_id"])
+                ->where("c.customer_id", $customer_id)
                 ->select(
                     "c.id",
                     "c.product_id",
                     "c.qty",
                     "p.name",
                     "p.mrp",
+                    "p.base_price",
+                    "p.discount",
+                    "p.is_discount",
                     "p.gst",
                     "pt.name as product_type",
                     "p.cess_tax",
                     DB::raw("
-            CASE 
-                WHEN p.image IS NOT NULL AND p.image != '' 
-                THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image) 
-                ELSE NULL 
-            END as image
-        ")
+                    CASE 
+                        WHEN p.image IS NOT NULL AND p.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product_images/', p.image) 
+                        ELSE NULL 
+                    END as image
+                ")
                 )
                 ->get();
+            foreach ($wishlist as $key => $value) {
+                $cartItem = DB::table("cart")
+                    ->where("product_id", $value->product_id)
+                    ->where("customer_id", $customer_id)
+                    ->first();
+                $cart_qty = $cartItem ? $cartItem->qty : 0;
+                $wishlist[$key]->cart_qty = $cart_qty; 
+                $details = DB::table("product_price")
+                    ->where("product_id", $value->product_id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+                $final_price = $value->base_price;
+                $applied_tier = null;
+                if ($details->count() > 0) {
+                    foreach ($details as $dkey => $tier) {
+                        $tier_price = $tier->price; 
+                        if ($value->is_discount == 1 && $value->discount > 0) {
+                            $discountAmount = ($tier_price * $value->discount) / 100;
+                            $tier_price = round($tier_price - $discountAmount, 2);
+                        } 
+                        $details[$dkey]->final_price = $tier_price; 
+                        if ($cart_qty >= $tier->qty) {
+                            $final_price = $tier_price;
+                            $applied_tier = $tier;
+                        }
+                    }
+                } else { 
+                    if ($value->is_discount == 1 && $value->discount > 0) {
+                        $discountAmount = ($value->base_price * $value->discount) / 100;
+                        $final_price = round($value->base_price - $discountAmount, 2);
+                    }
+                } 
+                $wishlist[$key]->final_price = $final_price;
+                $wishlist[$key]->applied_tier_qty = $applied_tier ? $applied_tier->qty : null;
+                $wishlist[$key]->tiers = $details;
+            }
 
             return response()->json([
                 'error' => false,
@@ -1249,6 +1291,7 @@ class mobileAppController extends Controller
                 "data" => $wishlist
             ], 200);
         } catch (\Throwable $th) {
+
             return response()->json([
                 'error' => true,
                 'message' => $th->getMessage(),
@@ -1256,7 +1299,6 @@ class mobileAppController extends Controller
             ], 422);
         }
     }
-
     public function saveAddress(Request $request)
     {
 
@@ -1976,7 +2018,6 @@ class mobileAppController extends Controller
             ], 500);
         }
     }
-
 
 
     //order
