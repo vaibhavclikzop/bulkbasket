@@ -364,6 +364,7 @@ class LoginController extends Controller
                 DB::table('customers')->where("id", $customer->id)->update([
                     "customer_type" => $request->customer_type,
                     "type"          => $request->type,
+                    "brand_name"          => $request->brand_name,
                     "name"  => $request->company_name,
                     "email" => $request->company_email,
                     "number" => $request->company_number,

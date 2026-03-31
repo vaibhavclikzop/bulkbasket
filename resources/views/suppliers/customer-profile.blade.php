@@ -188,7 +188,7 @@
                                 aria-controls="pills-profile" aria-selected="false">Personal Details</button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="pills-contact-tab" data-bs-toggle="pill"
+                            <button class="nav-link" id="pills-contCustomer Typeact-tab" data-bs-toggle="pill"
                                 data-bs-target="#pills-contact" type="button" role="tab"
                                 aria-controls="pills-contact" aria-selected="false">
                                 Documents
@@ -265,6 +265,11 @@
                                                 </option>
                                                 @endforeach
                                         </select>
+                                    </div>
+                                    <div class="col-md-4 mt-3">
+                                        <label for="">Brand Name</label>
+                                        <input type="text" name="brand_name" class="form-control"
+                                            value="{{ $data->brand_name }}" required>
                                     </div>
                                     <div class="col-md-4 mt-3">
                                         <label for="">Name</label>

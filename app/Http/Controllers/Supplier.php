@@ -107,6 +107,7 @@ class Supplier extends Controller
 
     public function SaveCustomer(Request $request)
     {
+        dd($request);
         $validator = Validator::make($request->all(), [
 
             'number' => 'required|digits:10',
@@ -137,6 +138,7 @@ class Supplier extends Controller
 
                 "customer_type" => $request->customer_type,
                 "type" => $request->type,
+                "brand_name" => $request->brand_name,
                 "name" => $request->company_name,
                 "number" => $request->company_number,
                 "email" => $request->company_email,
@@ -417,6 +419,7 @@ class Supplier extends Controller
                 "type" => $request->type,
                 "customer_type" => $request->customer_type,
                 "name" => $request->company_name,
+                "brand_name" => $request->brand_name,
                 "number" => $request->company_number,
                 "email" => $request->company_email,
                 "gst" => $request->company_gst,

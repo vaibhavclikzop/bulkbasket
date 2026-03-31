@@ -115,6 +115,10 @@
                                 </select>
                             </div>
                             <div class="col-md-4 mt-3">
+                                <label for="">Brand Name</label>
+                                <input type="text" name="brand_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-4 mt-3">
                                 <label for="">Name</label>
                                 <input type="text" name="company_name" class="form-control" required>
                             </div>
