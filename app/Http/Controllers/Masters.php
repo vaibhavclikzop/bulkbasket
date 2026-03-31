@@ -574,9 +574,9 @@ class Masters extends Controller
             $query->where("a.category_id", request("search_category_id"));
         }
         $productCount = DB::table('products')->count();
-        $productType=DB::table('product_type')->where('active',1)->get();
+        $productType = DB::table('product_type')->where('active', 1)->get();
         $data = $query->paginate(10)->withQueryString();
-        return view("suppliers.products", compact("data",'productType', 'warehouse', "vendor", "brand", "product_uom", "gst", "category", "productCount", "subCategories"));
+        return view("suppliers.products", compact("data", 'productType', 'warehouse', "vendor", "brand", "product_uom", "gst", "category", "productCount", "subCategories"));
     }
 
 
@@ -905,9 +905,10 @@ class Masters extends Controller
                 }
             } else {
                 $oldProduct = DB::table("products")->where("id", $request->id)->first();
-                $description = $request->description
-                    ? $request->description
-                    : ($oldProduct->description ?? '');
+                $description = $request->description ?? '';
+                // $description = $request->description
+                //     ? $request->description
+                //     : ($oldProduct->description ?? '');
                 $tags = $request->tags
                     ? $request->tags
                     : ($oldProduct->tags ?? '');
