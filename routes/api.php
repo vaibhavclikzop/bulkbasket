@@ -167,7 +167,6 @@ Route::get('web/get-refund', [WebApiController::class, 'refund'])->name('web/get
 Route::get('web/get-terms', [WebApiController::class, 'terms'])->name('web/get-terms');
 Route::get('web/get-privacy', [WebApiController::class, 'privacy'])->name('web/get-privacy');
 Route::get('web/get-order-delivery', [WebApiController::class, 'orderDelivery'])->name('web/get-order-delivery');
-
 Route::get('web/promotional-banner', [WebApiController::class, 'BannerApi'])->name('web/promotional-banner');
 Route::post('web/check-gst', [WebApiController::class, 'checkGSTApi'])->name('web/check-gst');
 Route::get('web/get-featured-product', [WebApiController::class, 'homeCategory'])->name('web/get-featured-product');
@@ -190,4 +189,11 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::get('web/get-states', [WebApiController::class, 'getStates'])->name('web/get-states');
     Route::get('web/get-district/{state}', [WebApiController::class, 'getDistrict'])->name('web/get-district');
     Route::post('web/delete-address', [WebApiController::class, 'deleteAddress'])->name('web/delete-address');
+    Route::post('web/save-order', [WebApiController::class, 'SaveOrder'])->name('web/save-order');
+    Route::get('web/get-estimate', [WebApiController::class, 'getEstimate'])->name('web/get-estimate');
+    Route::get('web/get-estimate-details/{id}', [WebApiController::class, 'getEstimateDetails'])->name('web/get-estimate-details');
+    Route::get('web/get-order', [WebApiController::class, 'getOrder'])->name('web/get-order');
+    Route::get('web/get-order-details/{id}', [WebApiController::class, 'getOrderDetails'])->name('web/get-order-details');
+    Route::post('web/add-to-cart-bulk', [WebApiController::class, 'addWishlistToCartBulk'])->name('web/add-to-cart-bulk');
+    Route::post('web/customer-logout', [LoginController::class, 'apiLogout'])->name('web/customer-logout');
 });

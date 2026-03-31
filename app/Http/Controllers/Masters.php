@@ -927,6 +927,7 @@ class Masters extends Controller
                 "discount"      => $request->filled('discount') ? $request->discount : 0.00,
                 "hsn_code"      => $request->hsn_code,
                 "uom_id"        => $request->uom_id,
+                "per_uom"        => $request->per_uom,
                 "min_stock"     => $request->min_stock,
                 "description"   => $description,
                 "tags"          => $tags,

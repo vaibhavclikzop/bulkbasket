@@ -17,37 +17,32 @@ class CustomerFrontend
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $token = $request->bearerToken(); // Gets token from Authorization header
+        $token = $request->bearerToken();
 
         if (empty($token)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized. Token missing.'], 401);
         }
-
-        $user = DB::table("customer_users as a")
-            ->select("a.*")
+        $user = DB::table("remember_token as t")
+            ->join("customer_users as a", "t.user_id", "a.id")
             ->join("customers as b", "a.customer_id", "b.id")
-            ->where('a.web_token', $token)
+            ->where('t.web_token', $token)
             ->where("b.active", 1)
             ->first();
-
         if (empty($user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized. Invalid token.',
             ], 401);
         }
-
         $child_ids = [];
         $visited = [];
         $iterable = [$user->id];
         $depth = 0;
         $maxDepth = 10;
-
         while (!empty($iterable) && $depth < $maxDepth) {
             $iterable = array_diff($iterable, $visited);
             $visited = array_merge($visited, $iterable);
             $child_ids = array_merge($child_ids, $iterable);
-
             $users = DB::table("customer_users")->whereIn("parent_id", $iterable)->get();
             $iterable = $users->pluck('id')->toArray();
             $depth++;

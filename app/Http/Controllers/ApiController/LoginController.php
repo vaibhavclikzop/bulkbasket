@@ -163,8 +163,7 @@ class LoginController extends Controller
                 'redirect' => 'inactive'
             ]);
         }
-
-        // ✅ Generate login token
+        
         $token = bin2hex(random_bytes(16));
         $agent = new \Jenssegers\Agent\Agent();
         $browser = $agent->browser();
@@ -173,6 +172,14 @@ class LoginController extends Controller
 
         DB::table('customer_users')->where("id", $user->id)->update([
             'web_token' => $token,
+            'last_ip' => $request->ip(),
+            'last_login' => now(),
+            'platform' => "$browser / $version / $platform"
+        ]);
+        DB::table('remember_token')->insert([
+            'web_token' => $token,
+            'customer_id' =>   $user->customer_id,
+            'user_id' =>   $user->id,
             'last_ip' => $request->ip(),
             'last_login' => now(),
             'platform' => "$browser / $version / $platform"
@@ -281,7 +288,7 @@ class LoginController extends Controller
         if (!$user) {
             return response()->json(['status' => false, 'message' => 'User not found']);
         }
-         
+
 
         DB::table('customer_users')
             ->where('number', $user->number)
@@ -294,7 +301,6 @@ class LoginController extends Controller
             'message' => 'Password reset successfully'
         ]);
     }
-
 
 
     public function forgotVerifyOtp(Request $request)
@@ -336,8 +342,6 @@ class LoginController extends Controller
             'message' => 'OTP verified successfully',
         ]);
     }
-
-
 
 
     public function saveCustomerApi(Request $request)
@@ -443,7 +447,6 @@ class LoginController extends Controller
                 ->where("a.number", $request->number)
                 ->where("a.password", $request->password)
                 ->first();
-
             if (!$user) {
                 return response()->json([
                     'status' => false,
@@ -476,6 +479,14 @@ class LoginController extends Controller
                 'platform' => "$browser / $version / $platform"
             ]);
 
+            DB::table('remember_token')->insert([
+                'web_token' => $token,
+                'user_id' =>   $user->id,
+                'customer_id' =>   $user->customer_id,
+                'last_ip' => $request->ip(),
+                'last_login' => now(),
+                'platform' => "$browser / $version / $platform"
+            ]);
             return response()->json([
                 'status' => true,
                 'message' => 'Login successful',
@@ -488,5 +499,29 @@ class LoginController extends Controller
                 'message' => 'Server error: ' . $th->getMessage()
             ], 500);
         }
+    }
+
+    public function apiLogout(Request $request)
+    {
+        $token = $request->bearerToken();
+        if (!$token) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Token not provided.'
+            ], 401);
+        }
+        $deleted = DB::table('remember_token')
+            ->where('web_token', $token)
+            ->delete();
+        if (!$deleted) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Invalid token.'
+            ], 401);
+        }
+        return response()->json([
+            'status' => true,
+            'message' => 'Logout successful.'
+        ], 200);
     }
 }

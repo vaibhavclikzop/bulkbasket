@@ -240,6 +240,7 @@ class WebApiController extends Controller
         $prod = DB::table("products as a")
             ->select(
                 "a.*",
+                "a.image",
                 "b.name as uom",
                 "c.name as category",
                 "d.name as sub_category",
@@ -251,7 +252,13 @@ class WebApiController extends Controller
                         THEN ROUND(((a.mrp - a.base_price) / a.mrp) * 100, 2)
                         ELSE 0 
                     END as discount
-                ")
+                "),
+                DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                    ")
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
@@ -329,6 +336,7 @@ class WebApiController extends Controller
         }
         return $products;
     }
+
 
     public function dealOnDay(Request $request)
     {
@@ -470,15 +478,20 @@ class WebApiController extends Controller
                 "b.name as uom",
                 "c.name as category",
                 "d.name as sub_category",
-                "f.name as product_type"
+                "f.name as product_type",
+                "bd.name as brand_name"
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
             ->join("product_type as f", "a.product_type_id", "f.id")
+            ->join("product_brand as bd", "a.brand_id", "bd.id")
             ->where("a.id", $id)
             ->where("a.active", 1)
             ->first();
+        if ($product && isset($product->temp_image)) {
+            unset($product->temp_image);
+        }
         if (!$product) {
             return response()->json([
                 "status" => false,
@@ -493,7 +506,7 @@ class WebApiController extends Controller
         $final_price = $product->base_price;
         if ($details->count() > 0) {
 
-            $last = $details->last(); 
+            $last = $details->last();
             $web_token = $request->header('web_token') ?? session('web_token');
 
             if ($web_token) {
@@ -507,25 +520,25 @@ class WebApiController extends Controller
                     if ($cart) {
                         foreach ($details as $tier) {
                             if ($cart->qty >= $tier->qty) {
-                                $final_price = $tier->price;  
+                                $final_price = $tier->price;
                             }
                         }
                     }
                 }
-            } 
+            }
             if ($product->is_discount == 1 && $product->discount > 0) {
                 $discountAmount = ($final_price * $product->discount) / 100;
                 $final_price = round($final_price - $discountAmount, 2);
             }
-        } else { 
+        } else {
             if ($product->is_discount == 1 && $product->discount > 0) {
                 $discountAmount = ($product->base_price * $product->discount) / 100;
                 $final_price = round($product->base_price - $discountAmount, 2);
             }
-        } 
+        }
         $product->final_price = $final_price;
-
         $supplier = DB::table("suppliers")->where("id", $product->supplier_id)->first();
+        $images = DB::table("product_images")->where("product_id", $id)->get();
 
         $related_products = DB::table("products as a")
             ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
@@ -535,15 +548,31 @@ class WebApiController extends Controller
             ->where("a.sub_category_id", $product->sub_category_id)
             ->where("a.active", 1)
             ->get();
-        $images = DB::table("product_images")->where("product_id", $id)->get();
+        $related_products = $related_products->map(function ($item) {
+            unset($item->temp_image);
+            return $item;
+        });
+        $brand_products = DB::table("products as a")
+            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->where("a.brand_id", $product->brand_id)
+            ->where("a.active", 1)
+            ->get();
+        $brand_products = $brand_products->map(function ($item) {
+            unset($item->temp_image);
+            return $item;
+        });
         return response()->json([
             "status" => true,
             "message" => "Product details fetched successfully",
             "data" => [
                 "product" => $product,
+                "product_images" => $images,
                 "supplier" => $supplier,
                 "related_products" => $related_products,
-                "images" => $images
+                "brand_products" => $brand_products
             ]
         ], 200);
     }
@@ -585,8 +614,6 @@ class WebApiController extends Controller
                     "data" => []
                 ], 404);
             }
-
-            // tiers
             $tiers = DB::table("customers_products_list as a")
                 ->join("customers_products_tier as b", "a.id", "b.customer_product_id")
                 ->select("b.qty", "b.base_price as price")
@@ -602,14 +629,10 @@ class WebApiController extends Controller
                     ->orderBy("qty", "asc")
                     ->get();
             }
-
-            // cart check
             $cart = DB::table("cart")
                 ->where("product_id", $product->id)
                 ->where("customer_id", $request->user["customer_id"])
                 ->first();
-
-            // wishlist check
             $wishlist = DB::table("wishlist")
                 ->where("product_id", $product->id)
                 ->where("customer_id", $request->user["customer_id"])
@@ -707,7 +730,7 @@ class WebApiController extends Controller
 
     public function faqCategory(Request $request)
     {
-        $faq_category = DB::table("faq_category")->orderBy("seq")->get();
+        $faq_category = DB::table("faq_category")->get();
         $data = DB::table("main_faq as f")
             ->join("faq_category as c", "f.faq_cat_id", "=", "c.id")
             ->select("f.*", "c.name as category_name")
@@ -978,7 +1001,7 @@ class WebApiController extends Controller
                     "gst" => $product->gst,
                     "cess_tax" => $product->cess_tax,
                     "price" => $product->price,
-                    "category" => $product->category_name,
+                    "category_name" => $product->category_name,
                     "sub_category" => $product->sub_category,
                     "sub_subcategory" => $product->sub_subcategory,
                     "mrp" => $product->mrp,
@@ -991,8 +1014,8 @@ class WebApiController extends Controller
                     "cart_status" => $cart ? true : false,
                     "wishlist_status" => $wishlist ? true : false,
                 ];
-                $productArr[$product->sub_category]["sub_category"] = $product->sub_category;
-                $productArr[$product->sub_category]["products"][] = $productData;
+                $productArr[$product->category_name]["category_name"] = $product->category_name;
+                $productArr[$product->category_name]["products"][] = $productData;
             }
             $data["products"] = array_values($productArr);
             return response()->json([
@@ -1171,6 +1194,58 @@ class WebApiController extends Controller
                 'message' => $th->getMessage(),
                 "data" => []
             ], 422);
+        }
+    }
+
+    public function addWishlistToCartBulk(Request $request)
+    {
+        try {
+            $customerId = $request->user["customer_id"];
+            $items = $request->wishlist_ids;
+            if (empty($items) || !is_array($items)) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'Please select wishlist items'
+                ], 422);
+            }
+            foreach ($items as $row) {
+                $wishlist = DB::table("wishlist")
+                    ->where("id", $row['wishlist_id'])
+                    ->where("customer_id", $customerId)
+                    ->first();
+                if (!$wishlist) continue;
+                $qty = $row['qty'] ?? 1;
+                $cartItem = DB::table("cart")
+                    ->where("customer_id", $customerId)
+                    ->where("product_id", $wishlist->product_id)
+                    ->first();
+                if ($cartItem) {
+                    DB::table("cart")
+                        ->where("id", $cartItem->id)
+                        ->update([
+                            'qty' => $cartItem->qty + $qty,
+                            'updated_at' => now()
+                        ]);
+                } else {
+                    DB::table("cart")->insert([
+                        'customer_id' => $customerId,
+                        'product_id' => $wishlist->product_id,
+                        'qty' => $qty,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Selected wishlist items added to cart successfully'
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => true,
+                'message' => $th->getMessage()
+            ], 500);
         }
     }
 
@@ -1590,7 +1665,6 @@ class WebApiController extends Controller
 
     public function saveAddress(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
 
             'address_line_1' => 'required',
@@ -1778,6 +1852,298 @@ class WebApiController extends Controller
                 'message' => $th->getMessage(),
                 "data" => []
             ], 422);
+        }
+    }
+
+    public function saveOrder(Request $request)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'delivery_date' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'district' => 'required',
+            'city' => 'required',
+            'pincode' => 'required',
+            'pay_mode' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => true,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $cart = DB::table("cart as a")
+                ->select("a.*", "b.supplier_id", "b.base_price as mrp", "b.name as product", "b.description", "b.cess_tax", "b.gst")
+                ->join("products as b", "a.product_id", "=", "b.id")
+                ->where("a.customer_id", $request->user["customer_id"])
+                ->get()
+                ->groupBy("supplier_id");
+
+            if ($cart->isEmpty()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cart is empty.'
+                ], 400);
+            }
+
+            // Tier pricing
+            foreach ($cart as $k => $v) {
+                foreach ($v as $item) {
+                    $tiers = DB::table("product_price")
+                        ->where("product_id", $item->product_id)
+                        ->orderBy("qty", "asc")
+                        ->get();
+
+                    foreach ($tiers as $tier) {
+                        if ($item->qty >= $tier->qty) {
+                            $item->mrp = $tier->price;
+                        }
+                    }
+                }
+            }
+
+            $customer = $request->delivery_address === "Office"
+                ? DB::table("customers")->where("id", $request->user["customer_id"])->first()
+                : DB::table("customer_users")->where("id", $request->user["id"])->first();
+
+            $total_amount = 0;
+            $invoice_no = 'INV-' . $request->user['customer_id'] . date('YmdHis');
+
+            $order_id = DB::table("order_estimate")->insertGetId([
+                "customer_id" => $request->user['customer_id'],
+                "invoice_no" => $invoice_no,
+                "pay_mode" => $request->pay_mode,
+                "payment_status" => "Pending",
+                "order_status" => "Pending",
+                "total_amount" => $total_amount,
+                "name" => $request->name ?? $customer->name,
+                "number" => $request->delivery_phone ?? $customer->number,
+                "email" => $customer->email,
+                "address" => $request->address ?? $customer->address,
+                "state" => $request->state ?? $customer->state,
+                "district" => $request->district ?? $customer->district,
+                "city" => $request->city ?? $customer->city,
+                "pincode" => $request->pincode ?? $customer->pincode,
+                "remarks" => $request->remarks ?? null,
+                "delivery_date" => $request->delivery_date ?? null,
+            ]);
+
+            foreach ($cart as $supplier_id => $items) {
+                $supplierSubtotal = $items->sum(fn($item) => $item->mrp * $item->qty);
+
+                $orderSupplierId = DB::table("orders_supplier")->insertGetId([
+                    "order_id" => $order_id,
+                    "supplier_id" => $supplier_id,
+                    "subtotal" => $supplierSubtotal,
+                    "shipping_status" => "pending",
+                ]);
+
+                $gst_total = 0;
+                $cess_total = 0;
+
+                foreach ($items as $item) {
+                    DB::table("order_estimate_item")->insert([
+                        "supplier_id" => $supplier_id,
+                        "order_id" => $order_id,
+                        "product_id" => $item->product_id,
+                        "qty" => $item->qty,
+                        "price" => $item->mrp,
+                        "cess_tax" => $item->cess_tax,
+                        "gst" => $item->gst,
+                        "name" => $item->product,
+                        "description" => $item->description,
+                    ]);
+
+                    $gst_total += $item->mrp * $item->qty * $item->gst / 100;
+                    $cess_total += $item->mrp * $item->qty * $item->cess_tax / 100;
+                }
+
+                DB::table("orders_supplier")->where("id", $orderSupplierId)->update([
+                    "subtotal" => $supplierSubtotal + $gst_total + $cess_total,
+                ]);
+
+                $total_amount += $supplierSubtotal + $gst_total + $cess_total;
+            }
+
+            DB::table('order_estimate')->where('id', $order_id)->update([
+                'total_amount' => $total_amount
+            ]);
+            $customer = DB::table("customers")->where("id", $request->user["customer_id"])->first();
+
+            if ($request->pay_mode === 'wallet') {
+
+                $wallet = (float)($customer->wallet ?? 0);
+                $holdAmount = (float)($customer->hold_amount ?? 0);
+                $usedWallet = (float)($customer->used_wallet ?? 0);
+
+                if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Wallet amount is less than order total.'
+                    ], 400);
+                }
+
+                DB::table('order_estimate')->where('id', $order_id)->update([
+                    'payment_status' => "Hold"
+                ]);
+
+                DB::table("customers")
+                    ->where("id", $request->user['customer_id'])
+                    ->increment("hold_amount", $total_amount);
+            }
+
+            DB::table("cart")
+                ->where("customer_id", $request->user['customer_id'])
+                ->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'error' => false,
+                'message' => 'Order placed successfully.',
+                'order_id' => $order_id,
+                'invoice_no' => $invoice_no
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => true,
+                'message' => 'Server Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getEstimate(Request $request)
+    {
+
+        try {
+            $data = DB::table("order_estimate")->where("customer_id", $request->user["customer_id"])->get();
+            return response()->json([
+                'error' => false,
+                'message' => 'Load successfully.',
+                'data' => $data,
+
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'error' => true,
+                'message' => 'Server Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getEstimateDetails(Request $request, $id)
+    {
+        try {
+            $query = DB::table('order_estimate');
+
+            if ($id) {
+                $query->where('order_estimate.id', $id);
+            }
+
+            $orders = $query->orderBy('order_estimate.id', 'desc')->get();
+
+            foreach ($orders as $order) {
+                $order->items = DB::table('order_estimate_item')
+                    ->join('products', 'order_estimate_item.product_id', '=', 'products.id')
+                    ->select(
+                        'order_estimate_item.*',
+                        'products.name as product_name',
+                        'products.image as product_image',
+                        DB::raw("
+            CASE 
+                WHEN products.image IS NOT NULL AND products.image != '' 
+                THEN CONCAT('https://store.bulkbasketindia.com/product images/', products.image) 
+                ELSE NULL 
+            END as image
+        ")
+                    )
+                    ->where('order_estimate_item.order_id', $order->id)
+                    ->get();
+            }
+
+            return response()->json([
+                'error' => false,
+                'message' => 'Order estimate(s) retrieved successfully.',
+                'data' => $orders
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Something went wrong.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getOrder(Request $request)
+    {
+
+        try {
+            $data = DB::table("orders")->where("customer_id", $request->user["customer_id"])->get();
+            return response()->json([
+                'error' => false,
+                'message' => 'Load successfully.',
+                'data' => $data,
+
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'error' => true,
+                'message' => 'Server Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getOrderDetails(Request $request, $id)
+    {
+        try {
+            $query = DB::table('orders');
+
+            if ($id) {
+                $query->where('orders.id', $id);
+            }
+
+            $orders = $query->orderBy('orders.id', 'desc')->get();
+
+            foreach ($orders as $order) {
+                $order->items = DB::table('orders_item')
+                    ->join('products', 'orders_item.product_id', '=', 'products.id')
+                    ->select(
+                        'orders_item.*',
+                        'products.name as product_name',
+                        'products.image as product_image',
+                        DB::raw("
+            CASE 
+                WHEN products.image IS NOT NULL AND products.image != '' 
+                THEN CONCAT('https://store.bulkbasketindia.com/product images/', products.image) 
+                ELSE NULL 
+            END as image
+        ")
+                    )
+                    ->where('orders_item.order_id', $order->id)
+                    ->get();
+            }
+
+            return response()->json([
+                'error' => false,
+                'message' => 'Order retrieved successfully.',
+                'data' => $orders
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Something went wrong.',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

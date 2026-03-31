@@ -1,7 +1,7 @@
 @extends('suppliers.layouts.main')
 @section('main-section')
     @push('title')
-        <title>Order Challan   </title>
+        <title>Order Challan </title>
     @endpush
 
 
@@ -10,7 +10,7 @@
         <div class="card-header">
             <div class="d-flex justify-content-between">
                 <div>
-                   Order Challan   
+                    Order Challan
                 </div>
 
 
@@ -44,7 +44,7 @@
                 <div style="border: solid 1px; width: 30%; padding: 5px">
                     <div>
                         {{-- IRN : {{ $orders->invoice_no }} --}}
-                        IRN : 
+                        IRN :
                     </div>
                     <div>
                         ACK No. <br>
@@ -68,8 +68,8 @@
 
                 </div>
                 <div style="padding: 5px; border:solid 1px;width: 50%">
-                    Invoice No :   <br>
-                    Invoice Date :   <br>
+                    Invoice No : <br>
+                    Invoice Date : <br>
                     Email : {{ $setting->email }} <br>
                     Contact No : {{ $setting->number }}
                 </div>
@@ -224,6 +224,12 @@
                             <th style="border:  solid 1px; padding:2px">NA</th>
                         </tr>
                     </table>
+                    <div>
+                        <span style="font-size: 15px; color: black; margin-bottom:0px;"> Remarks :</b></span>
+                        <span style="font-size: 13px; color: black; margin-bottom:0px;">
+                            {{ $orders->remarks }}
+                        </span>
+                    </div>
                 </div>
                 <div style="padding: 5px; border:solid 1px; width: 50%">
                     <table class="w-100" style="text-align: right">

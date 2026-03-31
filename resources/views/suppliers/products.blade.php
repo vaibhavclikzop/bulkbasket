@@ -298,6 +298,12 @@
                                 </select>
                             </div>
 
+                             <div class="col-md-4 mt-3">
+                                <label for="">Per UOM(Qty)</label>
+                                <input type="number" step="0.01" name="per_uom" id="per_uom" 
+                                    class="form-control">
+                            </div>
+
                             <div class="col-md-4 mt-3">
                                 <label for="">GST <span style="color:red">*</span></label>
                                 <select name="gst" id="gst" class="form-control" required>
@@ -307,7 +313,6 @@
                                     @endforeach
                                 </select>
                             </div>
-
 
                             <div class="col-md-4 mt-3">
                                 <label for="">Cess Tax</label>
@@ -986,6 +991,7 @@
                     $("select").val("").trigger("change");
                     $("#product_suggestions").hide().html("");
                     $("#cess_tax").val(0);
+                    $("#per_uom").val("");
                     $("#min_stock").val(0);
                     $("#active").val(1);
                     loadProducts();

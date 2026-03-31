@@ -964,8 +964,7 @@ class Supplier extends Controller
             ->leftJoin("customer_users as cu", "a.customer_id", "cu.id")
             ->leftJoin("customers as cus", "a.customer_id", "cus.id")
             ->where("a.id", $id)
-            ->first();
-
+            ->first(); 
         $det = DB::table("order_estimate_item as a")
             ->select(
                 "a.*",
@@ -1725,7 +1724,7 @@ class Supplier extends Controller
         $formattedNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
         $nextVndr = $vndcode1 . $formattedNumber;
         $data = Vendor::where("supplier_id", $request->user['supplier_id'])->get();
-         
+
         return view("suppliers.vendor", compact("data", "nextVndr"));
     }
 

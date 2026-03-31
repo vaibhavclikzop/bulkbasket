@@ -261,8 +261,8 @@ class mobileAppController extends Controller
             }
 
             $brands = $filter->whereNotNull("image")->get();
-            $data["brand1"] = $brands->slice(0, 10)->values();
-            $data["brand2"] = $brands->slice(10, 10)->values();
+            $data["brand1"] = $brands->slice(0, 120)->values();
+            $data["brand2"] = $brands->slice(120, 241)->values();
 
             $filter = DB::table("products as a")
                 ->leftJoin("customers_products_list as b", function ($join) use ($request) {
@@ -1299,6 +1299,7 @@ class mobileAppController extends Controller
             ], 422);
         }
     }
+    
     public function saveAddress(Request $request)
     {
 

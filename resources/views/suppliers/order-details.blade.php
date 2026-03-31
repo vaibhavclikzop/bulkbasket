@@ -234,6 +234,12 @@
                             </th>
                         </tr>
                     </table>
+                    <div>
+                        <span style="font-size: 15px; color: black; margin-bottom:0px;"> Remarks :</b></span>
+                        <span style="font-size: 13px; color: black; margin-bottom:0px;">
+                            {{ $orders->remarks }}
+                        </span>
+                    </div>
                 </div>
                 <div style="padding: 5px; border:solid 1px; width: 50%">
                     <table class="w-100" style="text-align: right">
