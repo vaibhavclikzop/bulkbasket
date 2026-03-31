@@ -298,9 +298,9 @@
                                 </select>
                             </div>
 
-                             <div class="col-md-4 mt-3">
+                            <div class="col-md-4 mt-3">
                                 <label for="">Per UOM(Qty)</label>
-                                <input type="number" step="0.01" name="per_uom" id="per_uom" 
+                                <input type="number" step="0.01" name="per_uom" id="per_uom"
                                     class="form-control">
                             </div>
 
@@ -370,6 +370,7 @@
                             <div class="col-md-12 mt-3">
                                 <label for="">Description</label>
                                 <textarea name="description" id="description" class="form-control"></textarea>
+                                {{-- <textarea id="div_editor1" style="width: 70px !important"   name="description"></textarea> --}}
                             </div>
                             <div class="col-md-12 mt-3">
                                 <label for="">Tags (Enter Tag comma separated)</label>
@@ -888,6 +889,7 @@
     </form>
 
     <script>
+        
         $(document).ready(function() {
             $("#search_brand_id, #search_category_id").select2();
         })
@@ -1340,7 +1342,7 @@
                 });
             })
 
-                $(document).on("click", ".is_home", function() {
+            $(document).on("click", ".is_home", function() {
                 var is_home = 0;
                 var id = $(this).val()
                 if ($(this).prop("checked")) {
@@ -2059,5 +2061,9 @@
         $(document).on("input", "#discount", function() {
             calculateSalePrice();
         });
+    </script>
+
+    <script>
+        var editor1 = new RichTextEditor("#div_editor1");
     </script>
 @endsection
