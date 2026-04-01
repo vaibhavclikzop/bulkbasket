@@ -567,14 +567,19 @@ class WebApiController extends Controller
         $images = DB::table("product_images")->where("product_id", $id)->get();
 
         $related_products = DB::table("products as a")
-            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category", DB::raw("
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                DB::raw("
                         (SELECT COALESCE(SUM(cs.stock), 0) 
                         FROM current_stock cs 
                         WHERE cs.product_id = a.id
                         ) as current_stock
                     ")
 
-            
+
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
@@ -587,8 +592,12 @@ class WebApiController extends Controller
             return $item;
         });
         $brand_products = DB::table("products as a")
-            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category",
-             DB::raw("
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                DB::raw("
                         (SELECT COALESCE(SUM(cs.stock), 0) 
                         FROM current_stock cs 
                         WHERE cs.product_id = a.id
@@ -1488,23 +1497,27 @@ class WebApiController extends Controller
             $customer_id = $request->user["customer_id"];
             $wishlist = DB::table("wishlist as c")
                 ->join("products as p", "c.product_id", "p.id")
+                ->join("product_uom as um", "p.uom_id", "um.id")
                 ->where("c.customer_id", $customer_id)
                 ->select(
                     "c.id",
                     "c.product_id",
                     "c.qty",
+                    "p.image",
                     "p.name",
                     "p.base_price",
+                    "p.per_uom",
+                    "um.name as uom",
                     "p.mrp",
                     "p.gst",
                     "p.cess_tax",
                     DB::raw("
-                    CASE 
-                        WHEN p.image IS NOT NULL AND p.image != '' 
-                        THEN CONCAT('https://store.bulkbasketindia.com/product_images/', p.image) 
-                        ELSE NULL 
-                    END as image
-                ")
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = p.id
+                        ) as current_stock
+                    ")
+
                 )
                 ->get();
             foreach ($wishlist as $key => $item) {
