@@ -36,7 +36,7 @@
                     <tr>
                         <th>S.No</th>
                         <th>Vendor Name</th>
-                        <th>PO Name</th>
+                        {{-- <th>PO Name</th> --}}
                         <th>Description</th>
                         <th>PO ID</th>
                         <th>PO Date</th>
@@ -52,7 +52,7 @@
                         <tr>
                             <td>{{ $sno++ }}</td>
                             <td>{{ $item->vendor_name }}</td>
-                            <td>{{ $item->name }}</td>
+                            {{-- <td>{{ $item->name }}</td> --}}
                             <td>{{ $item->description }}</td>
                             <td>{{ $item->po_id }}</td>
                             <td>{{ date('d-m-Y', strtotime($item->po_date)) }}</td>

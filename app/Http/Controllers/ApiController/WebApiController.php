@@ -134,8 +134,6 @@ class WebApiController extends Controller
                 'data' => []
             ]);
         }
-
-        // 🧩 Step 1: Initial Search (normal LIKE search)
         $productsQuery = DB::table("products as a")
             ->select(
                 "a.*",
@@ -155,8 +153,18 @@ class WebApiController extends Controller
             });
 
         $products = $productsQuery->limit(20)->get();
+        foreach ($products as $key => $product) {
 
-        // 🧠 Step 2: If no products found → use AI to correct query
+            $tiers = DB::table("product_price")
+                ->where("product_id", $product->id)
+                ->orderBy("qty", "asc")
+                ->get();
+            foreach ($tiers as $tkey => $tier) {
+                $tiers[$tkey]->final_price = $tier->price;
+            }
+
+            $products[$key]->tiers = $tiers;
+        }
         if ($products->isEmpty()) {
             try {
                 $apiKey = config('services.openai.key');
@@ -178,7 +186,6 @@ class WebApiController extends Controller
                 ]);
 
                 $aiContent = trim($response->json()['choices'][0]['message']['content'] ?? '');
-
                 if ($aiContent && strtolower($aiContent) !== strtolower($query)) {
                     $correctedQuery = $aiContent;
 
@@ -202,7 +209,19 @@ class WebApiController extends Controller
                         })
                         ->limit(20)
                         ->get();
+                    foreach ($products as $key => $product) {
 
+                        $tiers = DB::table("product_price")
+                            ->where("product_id", $product->id)
+                            ->orderBy("qty", "asc")
+                            ->get();
+
+                        foreach ($tiers as $tkey => $tier) {
+                            $tiers[$tkey]->final_price = $tier->price;
+                        }
+
+                        $products[$key]->tiers = $tiers;
+                    }
                     return response()->json([
                         'status' => true,
                         'message' => 'Search completed (auto-corrected)',
@@ -479,7 +498,14 @@ class WebApiController extends Controller
                 "c.name as category",
                 "d.name as sub_category",
                 "f.name as product_type",
-                "bd.name as brand_name"
+                "bd.name as brand_name",
+                DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                    ")
+
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
@@ -541,7 +567,15 @@ class WebApiController extends Controller
         $images = DB::table("product_images")->where("product_id", $id)->get();
 
         $related_products = DB::table("products as a")
-            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category", DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                    ")
+
+            
+            )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
@@ -553,7 +587,15 @@ class WebApiController extends Controller
             return $item;
         });
         $brand_products = DB::table("products as a")
-            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category")
+            ->select("a.*", "b.name as uom", "c.name as category", "d.name as sub_category",
+             DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                    ")
+
+            )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
@@ -1442,26 +1484,41 @@ class WebApiController extends Controller
     public function getWishList(Request $request)
     {
         try {
+
+            $customer_id = $request->user["customer_id"];
             $wishlist = DB::table("wishlist as c")
                 ->join("products as p", "c.product_id", "p.id")
-                ->where("c.customer_id", $request->user["customer_id"])
+                ->where("c.customer_id", $customer_id)
                 ->select(
                     "c.id",
                     "c.product_id",
                     "c.qty",
                     "p.name",
+                    "p.base_price",
                     "p.mrp",
                     "p.gst",
                     "p.cess_tax",
                     DB::raw("
-            CASE 
-                WHEN p.image IS NOT NULL AND p.image != '' 
-                THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image) 
-                ELSE NULL 
-            END as image
-        ")
+                    CASE 
+                        WHEN p.image IS NOT NULL AND p.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product_images/', p.image) 
+                        ELSE NULL 
+                    END as image
+                ")
                 )
                 ->get();
+            foreach ($wishlist as $key => $item) {
+
+                $tiers = DB::table("product_price")
+                    ->where("product_id", $item->product_id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+                foreach ($tiers as $tkey => $tier) {
+                    $tiers[$tkey]->final_price = $tier->price;
+                }
+
+                $wishlist[$key]->tiers = $tiers;
+            }
 
             return response()->json([
                 'error' => false,
@@ -1469,6 +1526,7 @@ class WebApiController extends Controller
                 "data" => $wishlist
             ], 200);
         } catch (\Throwable $th) {
+
             return response()->json([
                 'error' => true,
                 'message' => $th->getMessage(),
