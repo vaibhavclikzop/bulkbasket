@@ -140,11 +140,19 @@ class WebApiController extends Controller
                 "b.name as uom",
                 "c.name as category",
                 "d.name as sub_category",
-                "e.name as brand"
+                "e.name as brand",
+                "pt.name as product_type",
+                DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                ")
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->join("product_type as pt", "a.product_type_id", "pt.id")
             ->leftJoin("product_brand as e", "a.brand_id", "e.id")
             ->where("a.active", 1)
             ->where(function ($q) use ($query) {
@@ -195,11 +203,19 @@ class WebApiController extends Controller
                             "b.name as uom",
                             "c.name as category",
                             "d.name as sub_category",
-                            "e.name as brand"
+                            "e.name as brand",
+                            "pt.name as product_type",
+                            DB::raw("
+                                (SELECT COALESCE(SUM(cs.stock), 0) 
+                                FROM current_stock cs 
+                                WHERE cs.product_id = a.id
+                                ) as current_stock
+                            ")
                         )
                         ->join("product_uom as b", "a.uom_id", "b.id")
                         ->join("product_category as c", "a.category_id", "c.id")
                         ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+                        ->join("product_type as pt", "a.product_type_id", "pt.id")
                         ->leftJoin("product_brand as e", "a.brand_id", "e.id")
                         ->where("a.active", 1)
                         ->where(function ($q) use ($correctedQuery) {
@@ -240,7 +256,6 @@ class WebApiController extends Controller
         ]);
     }
 
-
     public function getAllProducts()
     {
         $category_id = request("category_id");
@@ -265,13 +280,6 @@ class WebApiController extends Controller
                 "d.name as sub_category",
                 "e.name as sub_sub_category",
                 "f.name as product_type",
-                DB::raw("
-                    CASE 
-                        WHEN a.mrp > 0 
-                        THEN ROUND(((a.mrp - a.base_price) / a.mrp) * 100, 2)
-                        ELSE 0 
-                    END as discount
-                "),
                 DB::raw("
                         (SELECT COALESCE(SUM(cs.stock), 0) 
                         FROM current_stock cs 
@@ -341,6 +349,14 @@ class WebApiController extends Controller
                 }
             }
             $products[$key]->final_price = $final_price;
+            $price_for_discount = $final_price ?? $value->base_price;
+
+            $discount = null;
+            if ($value->mrp > 0) {
+                $discount = round((($value->mrp - $price_for_discount) / $value->mrp) * 100, 2);
+            }
+
+            $products[$key]->discount = $discount;
             $products[$key]->details = $details;
             if ($customer_id) {
                 $cartItem = DB::table("cart")
@@ -355,7 +371,6 @@ class WebApiController extends Controller
         }
         return $products;
     }
-
 
     public function dealOnDay(Request $request)
     {
@@ -490,7 +505,6 @@ class WebApiController extends Controller
 
     public function ProductDetailsApi(Request $request, $id)
     {
-
         $product = DB::table("products as a")
             ->select(
                 "a.*",
@@ -499,57 +513,44 @@ class WebApiController extends Controller
                 "d.name as sub_category",
                 "f.name as product_type",
                 "bd.name as brand_name",
-                DB::raw("
-                        (SELECT COALESCE(SUM(cs.stock), 0) 
-                        FROM current_stock cs 
-                        WHERE cs.product_id = a.id
-                        ) as current_stock
-                    ")
-
+                DB::raw("(
+                SELECT COALESCE(SUM(cs.stock), 0)
+                FROM current_stock cs
+                WHERE cs.product_id = a.id
+            ) as current_stock")
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
-            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->leftJoin("product_sub_category as d", "a.sub_category_id", "d.id")
             ->join("product_type as f", "a.product_type_id", "f.id")
-            ->join("product_brand as bd", "a.brand_id", "bd.id")
+            ->leftJoin("product_brand as bd", "a.brand_id", "bd.id")
             ->where("a.id", $id)
             ->where("a.active", 1)
             ->first();
-        if ($product && isset($product->temp_image)) {
-            unset($product->temp_image);
-        }
+
         if (!$product) {
             return response()->json([
                 "status" => false,
                 "message" => "Product not found"
             ], 404);
         }
+
+        if (isset($product->temp_image)) {
+            unset($product->temp_image);
+        }
         $details = DB::table("product_price")
             ->where("product_id", $product->id)
             ->orderBy("qty", "asc")
             ->get();
         $product->details = $details;
+        $web_token = $request->header('web_token') ?? session('web_token');
         $final_price = $product->base_price;
         if ($details->count() > 0) {
+            $final_price = $details->first()->price;
 
-            $last = $details->last();
-            $web_token = $request->header('web_token') ?? session('web_token');
-
-            if ($web_token) {
-                $customer = DB::table("customer_users")->where("web_token", $web_token)->first();
-
-                if ($customer) {
-                    $cart = DB::table("cart")
-                        ->where("customer_id", $customer->customer_id)
-                        ->where("product_id", $id)
-                        ->first();
-                    if ($cart) {
-                        foreach ($details as $tier) {
-                            if ($cart->qty >= $tier->qty) {
-                                $final_price = $tier->price;
-                            }
-                        }
-                    }
+            foreach ($details as $tier) {
+                if ($tier->price) {
+                    $final_price = $tier->price;
                 }
             }
             if ($product->is_discount == 1 && $product->discount > 0) {
@@ -563,6 +564,31 @@ class WebApiController extends Controller
             }
         }
         $product->final_price = $final_price;
+        $price_for_discount = $final_price ?? $product->base_price;
+
+        $discount = null;
+        if ($product->mrp > 0) {
+            $discount = round((($product->mrp - $price_for_discount) / $product->mrp) * 100, 2);
+        }
+        $product->discount = $discount; 
+        $product->cart_qty = 0;
+
+        if ($web_token) {
+            $customer = DB::table("customer_users")
+                ->where("web_token", $web_token)
+                ->first();
+
+            if ($customer) {
+                $cart = DB::table("cart")
+                    ->where("customer_id", $customer->customer_id)
+                    ->where("product_id", $id)
+                    ->first();
+
+                if ($cart) {
+                    $product->cart_qty = $cart->qty;
+                }
+            }
+        } 
         $supplier = DB::table("suppliers")->where("id", $product->supplier_id)->first();
         $images = DB::table("product_images")->where("product_id", $id)->get();
 
@@ -1001,17 +1027,17 @@ class WebApiController extends Controller
                 "a.gst",
                 "a.cess_tax",
                 "a.mrp",
+                "a.image",
                 "pt.name as product_type",
                 "pc.name as category_name",
                 "psc.name as sub_category",
                 "pssc.name as sub_subcategory",
                 DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                 DB::raw("
-                        CASE 
-                            WHEN a.image IS NOT NULL AND a.image != '' 
-                            THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
-                            ELSE NULL 
-                        END as image
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
                     ")
             )->get();
             $productIds = $products->pluck("id")->toArray();
@@ -1049,14 +1075,14 @@ class WebApiController extends Controller
                     "id" => $product->id,
                     "image" => $product->image,
                     "name" => $product->name,
-                    "gst" => $product->gst,
-                    "cess_tax" => $product->cess_tax,
-                    "price" => $product->price,
                     "category_name" => $product->category_name,
                     "sub_category" => $product->sub_category,
                     "sub_subcategory" => $product->sub_subcategory,
-                    "mrp" => $product->mrp,
                     "product_type" => $product->product_type,
+                    "gst" => $product->gst,
+                    "cess_tax" => $product->cess_tax,
+                    "base_price" => $product->price,
+                    "mrp" => $product->mrp,
                     "discount" => $product->mrp > 0
                         ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
                         : 0,
@@ -1064,6 +1090,7 @@ class WebApiController extends Controller
                     "cart" => $cart,
                     "cart_status" => $cart ? true : false,
                     "wishlist_status" => $wishlist ? true : false,
+                    "current_stock" => $product->current_stock,
                 ];
                 $productArr[$product->category_name]["category_name"] = $product->category_name;
                 $productArr[$product->category_name]["products"][] = $productData;

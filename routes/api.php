@@ -139,14 +139,16 @@ Route::middleware([customerMobileMiddleware::class])->group(function () {
 Route::get('/web-test', function () {
     return response()->json(['message' => 'Web API is working']);
 });
-//web old change 
+ 
+// Route::post('web/send-otp', [mobileAppController::class, 'sendOTP'])->name('web/send-otp');
+// Route::post('web/verify-otp', [mobileAppController::class, 'verifyOTP'])->name('web/verify-otp');
 Route::post('web/customer-login', [LoginController::class, 'customerLoginApi']);
 Route::post('web/send-otp', [LoginController::class, 'sendOtp']);
 Route::post('web/verify-otp', [LoginController::class, 'verifyOtp']);
 Route::post('web/forgot-password/send-otp', [LoginController::class, 'forgotSendOtp']);
 Route::post('web/forgot-password/verify-otp', [LoginController::class, 'forgotVerifyOtp']);
 Route::post('web/forgot-password/reset', [LoginController::class, 'forgotPWD']);
-Route::post('web/customer-signup', [LoginController::class, 'saveCustomerApi']);
+Route::post('web/customer-save', [LoginController::class, 'saveCustomerApi']);
 Route::get('web/get-category', [WebApiController::class, 'getCategory'])->name('web/get-category');
 Route::get('web/get-sub-category', [WebApiController::class, 'getSubCategory'])->name('web/get-sub-category');
 Route::get('web/get-sub-sub-category', [WebApiController::class, 'getSubSubCategory'])->name('web/get-sub-sub-category');

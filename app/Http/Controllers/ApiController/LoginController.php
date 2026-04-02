@@ -109,7 +109,6 @@ class LoginController extends Controller
                 'message' => 'Incorrect OTP. Please try again.',
             ]);
         }
-        // ✅ OTP verified successfully
         Session::forget($sessionKey);
         Session::forget($expiryKey);
 
@@ -118,6 +117,9 @@ class LoginController extends Controller
             ->join("customers as b", "a.customer_id", "b.id")
             ->where("a.number", $request->number)
             ->first();
+        
+        
+
 
         if (!$user) {
             $customerId = DB::table('customers')->insertGetId([
@@ -135,7 +137,16 @@ class LoginController extends Controller
 
             return response()->json([
                 'status' => false,
-                'message' => 'Please complete signup',
+                'message' => 'Your mobile number has been verified.',
+                'redirect' => 'signup step follow'
+            ]);
+        }
+        
+
+        if ($user->active == 0 && $user->supplier_id == 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Please sign up to proceed.',
                 'redirect' => 'signup'
             ]);
         }
@@ -143,27 +154,11 @@ class LoginController extends Controller
         if ($user->active == 2) {
             return response()->json([
                 'status' => false,
-                'message' => 'Your account is under process. Please wait 2–4 hours.',
-                'redirect' => 'pending'
+                'message' => 'Your account is under process.',
+                'redirect' => 'pending for approve'
             ]);
         }
 
-        if ($user->active == 0 && $user->supplier_id == 0) {
-            return response()->json([
-                'status' => false,
-                'message' => 'You need to signup first',
-                'redirect' => 'signup'
-            ]);
-        }
-
-        if ($user->active == 0) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Your account is inactive. Please contact supplier.',
-                'redirect' => 'inactive'
-            ]);
-        }
-        
         $token = bin2hex(random_bytes(16));
         $agent = new \Jenssegers\Agent\Agent();
         $browser = $agent->browser();
@@ -525,4 +520,6 @@ class LoginController extends Controller
             'message' => 'Logout successful.'
         ], 200);
     }
+
+
 }
