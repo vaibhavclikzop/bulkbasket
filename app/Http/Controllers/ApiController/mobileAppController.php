@@ -237,6 +237,14 @@ class mobileAppController extends Controller
                 ->whereNotNull("image")
                 ->get();
 
+                 $data["app_slider"] = DB::table("sliders5")
+                ->select(
+                    "sliders5.*",
+                    DB::raw("CONCAT('https://store.bulkbasketindia.com/sliders/', image) as image")
+                )
+                ->whereNotNull("image")
+                ->get();
+
             $filter = DB::table('product_category')
                 ->select(
                     'id',

@@ -79,10 +79,11 @@ Route::middleware([CheckAdmin::class])->group(function () {
     Route::get('s1/documents', [Masters::class, 'Documents'])->name('s1/documents');
     Route::post('s1/SaveDocuments', [Masters::class, 'SaveDocuments'])->name('s1/SaveDocuments');
 
-
-
     Route::get('s1/sliders1', [WebsiteManagement::class, 'Sliders1'])->name('s1/sliders1');
     Route::post('s1/SaveSlider1', [WebsiteManagement::class, 'SaveSlider1'])->name('s1/SaveSlider1');
+
+    Route::get('s1/app-slider', [WebsiteManagement::class, 'AppSlider'])->name('s1/AppSlider');
+    Route::post('s1/SaveAppSlider', [WebsiteManagement::class, 'SaveAppSlider'])->name('s1/SaveAppSlider');
 
 
     Route::get('s1/sliders2', [WebsiteManagement::class, 'Sliders2'])->name('s1/sliders2');
@@ -162,7 +163,6 @@ Route::middleware([Suppliers::class])->group(function () {
 
     Route::get('supplier/product-sub-sub-category', [Masters::class, 'ProductSubSubCategory'])->name('supplier/product-sub-sub-category');
     Route::post('supplier/SaveProductSubSubCategory', [Masters::class, 'SaveProductSubSubCategory'])->name('supplier/SaveProductSubSubCategory');
-
 
     Route::get('supplier/product-brand', [Masters::class, 'ProductBrand'])->name('supplier/product-brand');
     Route::post('supplier/SaveProductBrand', [Masters::class, 'SaveProductBrand'])->name('supplier/SaveProductBrand');

@@ -240,6 +240,7 @@
                                      <span class="item-name">Middle Sliders</span>
                                  </a>
                              </li>
+                              
 
                              <li class="nav-item">
                                  <a class="nav-link " href="/s1/sliders3">
@@ -339,6 +340,15 @@
                                  </a>
                              </li>
                          </ul>
+                     </li>
+
+                      <li class="nav-item">
+                         <a class="nav-link" aria-current="page" href="/s1/app-slider">
+                             <i class="fa fa-credit-card" data-bs-toggle="tooltip" title="Dashboard" data-bs-placement="right">
+                                 
+                             </i>
+                             <span class="item-name">App Slider</span>
+                         </a>
                      </li>
 
                      <li class="nav-item">
