@@ -215,6 +215,37 @@ class WebsiteManagement extends Controller
         return  redirect()->back()->with("success", "Save Successfully");
     }
 
+    public function AppHeroSlider(Request $request)
+    {
+        $data =  DB::table("sliders6")->orderBy("id", "desc")->get();
+        return view("admin.sliders6", compact("data"));
+    }
+
+    public function SaveHeroSlider(Request $request)
+    {
+        $file = "";
+        if ($request->hasFile('file')) {
+            $file = time() . '.' . $request->file('file')->extension();
+            $request->file('file')->move('sliders', $file);
+        }
+        try {
+            $data = [
+                "image" => $file,
+                "link" => $request->link,
+            ];
+            if ($request->id) {
+                DB::table('sliders6')->where("id", $request->id)->delete();
+            } else {
+                DB::table('sliders6')->insert($data);
+            }
+        } catch (Exception $e) {
+
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        return  redirect()->back()->with("success", "Save Successfully");
+    }
+
     public function faqCategory(Request $request)
     {
         $data =   DB::table("faq_category")->get();

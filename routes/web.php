@@ -85,6 +85,9 @@ Route::middleware([CheckAdmin::class])->group(function () {
     Route::get('s1/app-slider', [WebsiteManagement::class, 'AppSlider'])->name('s1/AppSlider');
     Route::post('s1/SaveAppSlider', [WebsiteManagement::class, 'SaveAppSlider'])->name('s1/SaveAppSlider');
 
+    Route::get('s1/app-hero-slider', [WebsiteManagement::class, 'AppHeroSlider'])->name('s1/AppHeroSlider');
+    Route::post('s1/SaveHeroSlider', [WebsiteManagement::class, 'SaveHeroSlider'])->name('s1/SaveHeroSlider');
+
 
     Route::get('s1/sliders2', [WebsiteManagement::class, 'Sliders2'])->name('s1/sliders2');
     Route::post('s1/SaveSlider2', [WebsiteManagement::class, 'SaveSlider2'])->name('s1/SaveSlider2');

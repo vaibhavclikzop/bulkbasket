@@ -159,14 +159,14 @@ class mobileAppController extends Controller
                     $user_id = $user->id;
                 }
 
-                if ($user->active == 2) {
-                    return response()->json([
-                        'error' => false,
-                        'message' => 'Your account is under process. Please wait 2–4 hours.',
-                        'redirect' => 'pending',
-                        "data" => []
-                    ], 200);
-                }
+                // if ($user->active == 2) {
+                //     return response()->json([
+                //         'error' => false,
+                //         'message' => 'Your account is under process. Please wait 2–4 hours.',
+                //         'redirect' => 'pending',
+                //         "data" => []
+                //     ], 200);
+                // }
 
                 // if ($user->active == 0 && $user->supplier_id == 0) {
                 //     return response()->json([
@@ -229,15 +229,15 @@ class mobileAppController extends Controller
     public function homePage(Request $request)
     {
         try {
-            $data["sliders"] = DB::table("sliders")
+            $data["sliders"] = DB::table("sliders6")
                 ->select(
-                    "sliders.*",
+                    "sliders6.*",
                     DB::raw("CONCAT('https://store.bulkbasketindia.com/sliders/', image) as image")
                 )
                 ->whereNotNull("image")
                 ->get();
 
-                 $data["app_slider"] = DB::table("sliders5")
+            $data["app_slider"] = DB::table("sliders5")
                 ->select(
                     "sliders5.*",
                     DB::raw("CONCAT('https://store.bulkbasketindia.com/sliders/', image) as image")
@@ -288,6 +288,7 @@ class mobileAppController extends Controller
                 ->join("product_category as pc", "a.category_id", "pc.id")
                 ->join("product_sub_category as psc", "a.sub_category_id", "psc.id")
                 ->join("product_type as pt", "a.product_type_id", "pt.id")
+                ->join("product_uom as um", "a.uom_id", "um.id")
                 ->where("a.is_home", 1)
                 ->where("a.active", 1);
 
@@ -297,17 +298,26 @@ class mobileAppController extends Controller
                 "a.gst",
                 "a.cess_tax",
                 "a.mrp",
+                "a.is_discount",
+                "a.per_uom",
+                "um.name as uom_name",
                 "pt.name as product_type",
                 "pc.name as category_name",
                 "psc.name as sub_category",
                 DB::raw("COALESCE(b.base_price, a.base_price) as price"),
                 DB::raw("
-                CASE 
-                    WHEN a.image IS NOT NULL AND a.image != '' 
-                    THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
-                    ELSE NULL 
-                END as image
-            ")
+                    CASE 
+                        WHEN a.image IS NOT NULL AND a.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+                        ELSE NULL 
+                    END as image
+                "),
+                DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                    ")
             )->get();
 
             $productIds = $products->pluck("id")->toArray();
@@ -355,24 +365,62 @@ class mobileAppController extends Controller
                 $cart = $carts[$product->id] ?? null;
                 $wishlist = $wishlists[$product->id] ?? null;
 
+                $final_price = null;
+
+                // ✅ SAME LOGIC AS FIRST FUNCTION
+                if ($tiers->count() > 0) {
+
+                    // set default final_price in tiers
+                    foreach ($tiers as $tkey => $tier) {
+                        $tiers[$tkey]->final_price = $tier->price;
+                    }
+
+                    $lastIndex = $tiers->count() - 1;
+                    $highest = $tiers[$lastIndex];
+
+                    if ($product->is_discount == 1 && $product->discount > 0) {
+                        $discountAmount = ($highest->price * $product->discount) / 100;
+                        $final_price = round($highest->price - $discountAmount, 2);
+
+                        $tiers[$lastIndex]->final_price = $final_price;
+                    } else {
+                        $final_price = $highest->price;
+                    }
+                } else {
+
+                    if ($product->is_discount == 1 && $product->discount > 0) {
+                        $discountAmount = ($product->price * $product->discount) / 100;
+                        $final_price = round($product->price - $discountAmount, 2);
+                    } else {
+                        $final_price = $product->price;
+                    }
+                }
+
+                // ✅ Discount % (MRP based)
+                $price_for_discount = $final_price ?? $product->price;
+
+                $discount = 0;
+                if ($product->mrp > 0) {
+                    $discount = round((($product->mrp - $price_for_discount) / $product->mrp) * 100, 2);
+                }
                 $productData = [
                     "id" => $product->id,
                     "image" => $product->image,
                     "name" => $product->name,
                     "gst" => $product->gst,
                     "cess_tax" => $product->cess_tax,
-                    "price" => $product->price,
+                    "price" => $final_price,
                     "mrp" => $product->mrp,
+                    "current_stock" => $product->current_stock,
+                    "uom_name" => $product->uom_name,
+                    "per_uom" => $product->per_uom,
                     "product_type" => $product->product_type,
-                    "discount" => $product->mrp > 0
-                        ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
-                        : 0,
+                    "discount" => $discount,
                     "tiers" => $tiers->values(),
                     "cart" => $cart,
                     "cart_status" => $cart ? true : false,
                     "wishlist_status" => $wishlist ? true : false,
                 ];
-
 
                 $productArr[$product->category_name]["category_name"] = $product->category_name;
                 $productArr[$product->category_name]["products"][] = $productData;
@@ -403,16 +451,22 @@ class mobileAppController extends Controller
         $query = DB::table("products as a")
             ->select(
                 "a.*",
-                "b.name as uom",
+                "b.name as uom_name",
                 "c.name as category",
                 "d.name as sub_category",
                 DB::raw("
-            CASE 
-                WHEN a.image IS NOT NULL AND a.image != '' 
-                THEN CONCAT('https://store.bulkbasketindia.com/product%20images/', a.image) 
-                ELSE NULL 
-            END as image
-        ")
+                    CASE 
+                        WHEN a.image IS NOT NULL AND a.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product%20images/', a.image) 
+                        ELSE NULL 
+                    END as image
+                "),
+                DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                    ")
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
@@ -738,6 +792,7 @@ class mobileAppController extends Controller
                             ->where("a.supplier_id", $request->user["supplier_id"]);
                     })
                     ->join('product_type as pt', 'a.product_type_id', 'pt.id')
+                    ->join("product_uom as um", "a.uom_id", "um.id")
                     ->where("a.sub_category_id", $sub->id)
                     ->where("a.active", 1);
                 if ($sub_category_id) {
@@ -756,9 +811,18 @@ class mobileAppController extends Controller
                     "a.gst",
                     "a.cess_tax",
                     "a.mrp",
+                    "a.is_discount",
+                    "a.per_uom",
+                    "um.name as uom_name",
                     "pt.name as product_type",
                     "a.product_sub_sub_category",
                     DB::raw("COALESCE(b.base_price, a.base_price) as price"),
+                    DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = a.id
+                        ) as current_stock
+                    "),
                     DB::raw("
                             CASE 
                                 WHEN a.image IS NOT NULL AND a.image != '' 
@@ -773,7 +837,7 @@ class mobileAppController extends Controller
 
                 foreach ($products as $product) {
 
-
+                    // Get tiers (same as your code)
                     $tiers = DB::table("customers_products_list as a")
                         ->join("customers_products_tier as b", "a.id", "b.customer_product_id")
                         ->select("b.qty", "b.base_price as price")
@@ -782,25 +846,63 @@ class mobileAppController extends Controller
                         ->orderBy("b.qty", "asc")
                         ->get();
 
-
                     if ($tiers->isEmpty()) {
-
                         $tiers = DB::table("product_price")
                             ->select("qty", "price")
                             ->where("product_id", $product->id)
                             ->orderBy("qty", "asc")
                             ->get();
                     }
-                    $cart_status = false;
-                    $wishlist_status = false;
-                    $cart = DB::table("cart")->where("product_id", $product->id)->where("customer_id", $request->user["customer_id"])->first();
-                    $wishlist = DB::table("wishlist")->where("product_id", $product->id)->where("customer_id", $request->user["customer_id"])->first();
-                    if ($cart) {
-                        $cart_status = true;
+
+                    // ✅ FINAL PRICE LOGIC (same as getAllProducts)
+                    $final_price = null;
+
+                    if ($tiers->count() > 0) {
+
+                        foreach ($tiers as $tkey => $tier) {
+                            $tiers[$tkey]->final_price = $tier->price;
+                        }
+
+                        $lastIndex = $tiers->count() - 1;
+                        $highest = $tiers[$lastIndex];
+
+                        if ($product->is_discount == 1 && $product->discount > 0) {
+                            $discountAmount = ($highest->price * $product->discount) / 100;
+                            $final_price = round($highest->price - $discountAmount, 2);
+
+                            $tiers[$lastIndex]->final_price = $final_price;
+                        } else {
+                            $final_price = $highest->price;
+                        }
+                    } else {
+
+                        if ($product->is_discount == 1 && $product->discount > 0) {
+                            $discountAmount = ($product->price * $product->discount) / 100;
+                            $final_price = round($product->price - $discountAmount, 2);
+                        } else {
+                            $final_price = $product->price;
+                        }
                     }
-                    if ($wishlist) {
-                        $wishlist_status = true;
+
+                    // ✅ Discount % (MRP based)
+                    $price_for_discount = $final_price ?? $product->price;
+
+                    $discount = 0;
+                    if ($product->mrp > 0) {
+                        $discount = round((($product->mrp - $price_for_discount) / $product->mrp) * 100, 2);
                     }
+
+                    // Cart & wishlist
+                    $cart = DB::table("cart")
+                        ->where("product_id", $product->id)
+                        ->where("customer_id", $request->user["customer_id"])
+                        ->first();
+
+                    $wishlist = DB::table("wishlist")
+                        ->where("product_id", $product->id)
+                        ->where("customer_id", $request->user["customer_id"])
+                        ->first();
+
                     $productArr[] = [
                         "id" => $product->id,
                         "image" => $product->image,
@@ -808,17 +910,23 @@ class mobileAppController extends Controller
                         "name" => $product->name,
                         "gst" => $product->gst,
                         "cess_tax" => $product->cess_tax,
-                        "price" => $product->price,
+
+                        // ✅ IMPORTANT CHANGE
+                        "price" => $final_price,
+
                         "mrp" => $product->mrp,
+                        "per_uom" => $product->per_uom,
+                        "uom_name" => $product->uom_name,
+                        "current_stock" => $product->current_stock,
                         "product_type" => $product->product_type,
-                        "discount" => $product->mrp > 0
-                            ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
-                            : 0,
+
+                        // ✅ FIXED DISCOUNT
+                        "discount" => $discount,
 
                         "tiers" => $tiers,
                         "cart" => $cart,
-                        "cart_status" => $cart_status,
-                        "wishlist_status" => $wishlist_status,
+                        "cart_status" => $cart ? true : false,
+                        "wishlist_status" => $wishlist ? true : false,
                     ];
                 }
 
@@ -1247,6 +1355,7 @@ class mobileAppController extends Controller
             $wishlist = DB::table("wishlist as c")
                 ->join("products as p", "c.product_id", "p.id")
                 ->join("product_type as pt", "p.product_type_id", "pt.id")
+                ->join("product_uom as um", "p.uom_id", "um.id")
                 ->where("c.customer_id", $customer_id)
                 ->select(
                     "c.id",
@@ -1254,19 +1363,27 @@ class mobileAppController extends Controller
                     "c.qty",
                     "p.name",
                     "p.mrp",
+                    "p.per_uom",
                     "p.base_price",
                     "p.discount",
+                    "um.name as uom_name",
                     "p.is_discount",
                     "p.gst",
                     "pt.name as product_type",
                     "p.cess_tax",
                     DB::raw("
-                    CASE 
-                        WHEN p.image IS NOT NULL AND p.image != '' 
-                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image) 
-                        ELSE NULL 
-                    END as image
-                ")
+                        CASE 
+                            WHEN p.image IS NOT NULL AND p.image != '' 
+                            THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image) 
+                            ELSE NULL 
+                        END as image
+                    "),
+                    DB::raw("
+                        (SELECT COALESCE(SUM(cs.stock), 0) 
+                        FROM current_stock cs 
+                        WHERE cs.product_id = p.id
+                        ) as current_stock
+                    ")
                 )
                 ->get();
             foreach ($wishlist as $key => $value) {
@@ -1403,7 +1520,6 @@ class mobileAppController extends Controller
         }
     }
 
-
     public function updateDefaultAddress(Request $request)
     {
 
@@ -1519,112 +1635,228 @@ class mobileAppController extends Controller
         }
     }
 
-    public function getProductDetails(Request $request, $product_id)
+    public function getProductDetails(Request $request, $id)
     {
-        try {
+        $product = DB::table("products as a")
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                "f.name as product_type",
+                "bd.name as brand_name",
+                DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
+                FROM current_stock cs
+                WHERE cs.product_id = a.id) as current_stock"),
+                DB::raw("CASE 
+                WHEN a.image IS NOT NULL AND a.image != '' 
+                THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+                ELSE NULL 
+            END as image")
+            )
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->leftJoin("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->join("product_type as f", "a.product_type_id", "f.id")
+            ->leftJoin("product_brand as bd", "a.brand_id", "bd.id")
+            ->where("a.id", $id)
+            ->where("a.active", 1)
+            ->first();
 
-            $product = DB::table("products as a")
-                ->leftJoin("customers_products_list as b", function ($join) use ($request) {
-                    $join->on("a.id", "=", "b.product_id")
-                        ->where("b.customer_id", $request->user["customer_id"])
-                        ->where("a.supplier_id", $request->user["supplier_id"]);
-                })
-                ->join('product_type as pt', 'a.product_type_id', 'pt.id')
-                ->where("a.id", $product_id)
-                ->where("a.active", 1)
-                ->select(
-                    "a.id",
-                    "a.name",
-                    "a.gst",
-                    "a.cess_tax",
-                    "a.description",
-                    "a.mrp",
-                    "pt.name as product_type",
-                    DB::raw("COALESCE(b.base_price, a.base_price) as price"),
-                    DB::raw("
+        if (!$product) {
+            return response()->json(["status" => false, "message" => "Product not found"], 404);
+        }
+
+        unset($product->temp_image);
+
+        $details = DB::table("product_price")
+            ->where("product_id", $product->id)
+            ->orderBy("qty", "asc")
+            ->get();
+
+        $product->tiers = $details;
+
+        // =============================
+        // ✅ FINAL PRICE (Correct Logic)
+        // =============================
+        $final_price = $product->base_price;
+
+        if ($details->count() > 0) {
+
+            foreach ($details as $tier) {
+                if ($tier->price) {
+                    $final_price = $tier->price;
+                }
+            }
+
+            if ($product->is_discount == 1 && $product->discount > 0) {
+                $discountAmount = ($final_price * $product->discount) / 100;
+                $final_price = round($final_price - $discountAmount, 2);
+            }
+        } else {
+
+            if ($product->is_discount == 1 && $product->discount > 0) {
+                $discountAmount = ($product->base_price * $product->discount) / 100;
+                $final_price = round($product->base_price - $discountAmount, 2);
+            }
+        }
+
+        $product->final_price = $final_price;
+
+        // =============================
+        // ✅ DISCOUNT %
+        // =============================
+        $price_for_discount = $final_price ?? $product->base_price;
+
+        $discount = 0;
+        if ($product->mrp > 0) {
+            $discount = round((($product->mrp - $price_for_discount) / $product->mrp) * 100, 2);
+        }
+
+        $product->discount = $discount;
+
+        // =============================
+        // RELATED PRODUCTS (FIXED)
+        // =============================
+        $related_products = DB::table("products as a")
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                "f.name as product_type",
+                DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
+                FROM current_stock cs
+                WHERE cs.product_id = a.id) as current_stock"),
+                DB::raw("CASE 
+                WHEN a.image IS NOT NULL AND a.image != '' 
+                THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+                ELSE NULL 
+            END as image")
+            )
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->join("product_type as f", "a.product_type_id", "f.id")
+            ->where("a.sub_category_id", $product->sub_category_id)
+            ->where("a.active", 1)
+            ->get()
+            ->map(function ($item) {
+
+                $tiers = DB::table("product_price")
+                    ->where("product_id", $item->id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+
+                $final_price = $item->base_price;
+
+                if ($tiers->count() > 0) {
+                    foreach ($tiers as $tier) {
+                        $final_price = $tier->price;
+                    }
+
+                    if ($item->is_discount == 1 && $item->discount > 0) {
+                        $final_price = round($final_price - (($final_price * $item->discount) / 100), 2);
+                    }
+                } else {
+                    if ($item->is_discount == 1 && $item->discount > 0) {
+                        $final_price = round($final_price - (($final_price * $item->discount) / 100), 2);
+                    }
+                }
+
+                $item->price = $final_price;
+                $item->discount = ($item->mrp > 0)
+                    ? round((($item->mrp - $final_price) / $item->mrp) * 100, 2)
+                    : 0;
+                $item->tiers = $tiers;
+
+                return $item;
+            });
+
+        // =============================
+        // BRAND PRODUCTS (FIXED)
+        // =============================
+        $brand_products = DB::table("products as a")
+            ->select(
+                "a.*",
+                "b.name as uom",
+                "c.name as category",
+                "d.name as sub_category",
+                "f.name as product_type",
+                DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
+                FROM current_stock cs
+                WHERE cs.product_id = a.id) as current_stock"),
+                DB::raw("CASE 
+                WHEN a.image IS NOT NULL AND a.image != '' 
+                THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+                ELSE NULL 
+            END as image")
+            )
+            ->join("product_uom as b", "a.uom_id", "b.id")
+            ->join("product_category as c", "a.category_id", "c.id")
+            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+             ->join("product_type as f", "a.product_type_id", "f.id")
+            ->where("a.brand_id", $product->brand_id)
+            ->where("a.active", 1)
+            ->get()
+            ->map(function ($item) {
+
+                $tiers = DB::table("product_price")
+                    ->where("product_id", $item->id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+
+                $final_price = $item->base_price;
+
+                if ($tiers->count() > 0) {
+                    foreach ($tiers as $tier) {
+                        $final_price = $tier->price;
+                    }
+
+                    if ($item->is_discount == 1 && $item->discount > 0) {
+                        $final_price = round($final_price - (($final_price * $item->discount) / 100), 2);
+                    }
+                } else {
+                    if ($item->is_discount == 1 && $item->discount > 0) {
+                        $final_price = round($final_price - (($final_price * $item->discount) / 100), 2);
+                    }
+                }
+
+                $item->price = $final_price;
+                $item->discount = ($item->mrp > 0)
+                    ? round((($item->mrp - $final_price) / $item->mrp) * 100, 2)
+                    : 0;
+                $item->tiers = $tiers;
+
+                return $item;
+            });
+
+        $images = DB::table("product_images as a")
+            ->select(
+                "a.*",
+                DB::raw("
                     CASE 
                         WHEN a.image IS NOT NULL AND a.image != '' 
                         THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
                         ELSE NULL 
                     END as image
                 ")
+            )
+            ->where("product_id", $id)->get();
 
-                )
-                ->first();
-            if (!$product) {
-                return response()->json([
-                    "error" => true,
-                    "message" => "Product not found",
-                    "data" => []
-                ], 404);
-            }
-
-            // tiers
-            $tiers = DB::table("customers_products_list as a")
-                ->join("customers_products_tier as b", "a.id", "b.customer_product_id")
-                ->select("b.qty", "b.base_price as price")
-                ->where("a.customer_id", $request->user["customer_id"])
-                ->where("a.product_id", $product->id)
-                ->orderBy("b.qty", "asc")
-                ->get();
-
-            if ($tiers->isEmpty()) {
-                $tiers = DB::table("product_price")
-                    ->select("qty", "price")
-                    ->where("product_id", $product->id)
-                    ->orderBy("qty", "asc")
-                    ->get();
-            }
-
-            // cart check
-            $cart = DB::table("cart")
-                ->where("product_id", $product->id)
-                ->where("customer_id", $request->user["customer_id"])
-                ->first();
-
-            // wishlist check
-            $wishlist = DB::table("wishlist")
-                ->where("product_id", $product->id)
-                ->where("customer_id", $request->user["customer_id"])
-                ->first();
-
-            $cart_status = $cart ? true : false;
-            $wishlist_status = $wishlist ? true : false;
-
-            $result = [
-                "id" => $product->id,
-                "image" => $product->image,
-                "name" => $product->name,
-                "description" => $product->description,
-                "gst" => $product->gst,
-                "cess_tax" => $product->cess_tax,
-                "price" => $product->price,
-                "mrp" => $product->mrp,
-                "mrp" => $product->mrp,
-                "product_type" => $product->product_type,
-                "discount" => $product->mrp > 0
-                    ? round((($product->mrp - $product->price) / $product->mrp) * 100, 2)
-                    : 0,
-                "tiers" => $tiers,
-                "cart" => $cart,
-                "cart_status" => $cart_status,
-                "wishlist_status" => $wishlist_status,
-            ];
-
-            return response()->json([
-                "error" => false,
-                "message" => "Load Successfully",
-                "data" => $result
-            ], 200);
-        } catch (\Throwable $th) {
-
-            return response()->json([
-                "error" => true,
-                "message" => $th->getMessage(),
-                "data" => []
-            ], 422);
-        }
+        return response()->json([
+            "status" => true,
+            "message" => "Product details fetched successfully",
+            "data" => [
+                "product" => $product,
+                "product_images" => $images ?? [],
+                "supplier" => $supplier ?? null,
+                "related_products" => $related_products,
+                "brand_products" => $brand_products
+            ]
+        ], 200);
     }
+
 
     public function getProductByBrand(Request $request, $brand_id, $category_id = null, $sub_category_id = null, $ss_category_id = null)
     {
@@ -1773,7 +2005,6 @@ class mobileAppController extends Controller
             ], 422);
         }
     }
-
 
     public function getBrands(Request $request)
     {
@@ -2040,7 +2271,6 @@ class mobileAppController extends Controller
         }
     }
 
-
     //order
     public function getOrder(Request $request)
     {
@@ -2193,7 +2423,6 @@ class mobileAppController extends Controller
             ], 500);
         }
     }
-
 
     public function searchProducts(Request $request, $query)
     {

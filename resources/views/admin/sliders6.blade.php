@@ -10,13 +10,13 @@
             <div class="card-header">
                 <div class="d-flex justify-content-between">
                     <div class="mb-5">
-                     <h5>Deal Banner</h5>   
+                     <h5>Hero Banner</h5>   
                     </div>
                     {{-- <div>
                         <button class="btn btn-primary add" type="button"></button>
                     </div> --}}
                 </div>
-                <form action="{{ route('s1/SaveAppSlider') }}" method="POST" class="needs-validation" novalidate
+                <form action="{{ route('s1/SaveHeroSlider') }}" method="POST" class="needs-validation" novalidate
                     enctype="multipart/form-data">
                     @csrf
                     <div class="row">
@@ -68,7 +68,7 @@
     </div>
 
 
-    <form action="{{ route('s1/SaveAppSlider') }}" method="POST">
+    <form action="{{ route('s1/SaveHeroSlider') }}" method="POST">
         @csrf
         <div class="modal fade" id="modalId" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
             role="dialog" aria-labelledby="modalTitleId" aria-hidden="true">

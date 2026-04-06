@@ -342,14 +342,56 @@
                          </ul>
                      </li>
 
-                      <li class="nav-item">
-                         <a class="nav-link" aria-current="page" href="/s1/app-slider">
-                             <i class="fa fa-credit-card" data-bs-toggle="tooltip" title="Dashboard" data-bs-placement="right">
-                                 
+                     <li class="nav-item">
+                         <a class="nav-link" data-bs-toggle="collapse" href="#hero-master" role="button"
+                             aria-expanded="false" aria-controls="horizontal-menu">
+                             <i class="fa fa-users" aria-hidden="true"></i>
+                             <span class="item-name">App Banner </span>
+                             <i class="right-icon">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" class="icon-18"
+                                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                         d="M9 5l7 7-7 7"></path>
+                                 </svg>
                              </i>
-                             <span class="item-name">App Slider</span>
                          </a>
+                         <ul class="sub-nav collapse" id="hero-master" data-bs-parent="#sidebar-menu">
+                             <li class="nav-item">
+                                 <a class="nav-link " href="/s1/app-hero-slider">
+                                     <i class="icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="User Role"
+                                         data-bs-placement="right">Hero Banner </i>
+                                     <span class="item-name">Hero Banner </span>
+                                 </a>
+                             </li>
+                             <li class="nav-item">
+                                 <a class="nav-link " href="/s1/app-slider">
+                                     <i class="icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="User Role"
+                                         data-bs-placement="right">Deal Of Day </i>
+                                     <span class="item-name">Deal Of Day</span>
+                                 </a>
+                             </li>
+                         </ul>
                      </li>
+
+                       
 
                      <li class="nav-item">
                          <a class="nav-link" aria-current="page" href="/s1/quality-list">
