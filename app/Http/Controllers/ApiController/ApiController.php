@@ -852,6 +852,165 @@ class ApiController extends Controller
         ], 200);
     }
 
+
+    // public function SaveOrder(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         // 'delivery_address' => 'required',
+    //         // 'paymode' => 'required',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => $validator->errors()->first()
+    //         ], 422);
+    //     }
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $cart = DB::table("cart as a")
+    //             ->select("a.*", "b.supplier_id", "b.base_price as mrp", "b.name as product", "b.description", "b.cess_tax", "b.gst")
+    //             ->join("products as b", "a.product_id", "=", "b.id")
+    //             ->where("a.customer_id", $request->user["customer_id"])
+    //             ->get()
+    //             ->groupBy("supplier_id");
+
+    //         if ($cart->isEmpty()) {
+    //             return response()->json([
+    //                 'status' => false,
+    //                 'message' => 'Cart is empty.'
+    //             ], 400);
+    //         }
+
+    //         // Tier pricing
+    //         foreach ($cart as $k => $v) {
+    //             foreach ($v as $item) {
+    //                 $tiers = DB::table("product_price")
+    //                     ->where("product_id", $item->product_id)
+    //                     ->orderBy("qty", "asc")
+    //                     ->get();
+
+    //                 foreach ($tiers as $tier) {
+    //                     if ($item->qty >= $tier->qty) {
+    //                         $item->mrp = $tier->price;
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         $customer = $request->delivery_address === "Office"
+    //             ? DB::table("customers")->where("id", $request->user["customer_id"])->first()
+    //             : DB::table("customer_users")->where("id", $request->user["id"])->first();
+
+    //         $total_amount = 0;
+    //         $invoice_no = 'INV-' . $request->user['customer_id'] . date('YmdHis');
+
+    //         $order_id = DB::table("order_estimate")->insertGetId([
+    //             "customer_id" => $request->user['customer_id'],
+    //             "invoice_no" => $invoice_no,
+    //             "pay_mode" => $request->pay_mode,
+    //             "payment_status" => "Pending",
+    //             "order_status" => "Pending",
+    //             "total_amount" => $total_amount,
+    //             "name" => $request->name ?? $customer->name,
+    //             "number" => $request->delivery_phone ?? $customer->number,
+    //             "email" => $customer->email,
+    //             "address" => $request->delivery_address ?? $customer->address,
+    //             "state" => $request->delivery_state ?? $customer->state,
+    //             "district" => $request->delivery_district ?? $customer->district,
+    //             "city" => $request->delivery_city ?? $customer->city,
+    //             "pincode" => $request->delivery_pincode ?? $customer->pincode,
+    //             "remarks" => $request->remarks ?? null,
+    //             "delivery_date" => $request->delivery_date ?? null,
+    //         ]);
+
+    //         foreach ($cart as $supplier_id => $items) {
+    //             $supplierSubtotal = $items->sum(fn($item) => $item->mrp * $item->qty);
+
+    //             $orderSupplierId = DB::table("orders_supplier")->insertGetId([
+    //                 "order_id" => $order_id,
+    //                 "supplier_id" => $supplier_id,
+    //                 "subtotal" => $supplierSubtotal,
+    //                 "shipping_status" => "pending",
+    //             ]);
+
+    //             $gst_total = 0;
+    //             $cess_total = 0;
+
+    //             foreach ($items as $item) {
+    //                 DB::table("order_estimate_item")->insert([
+    //                     "supplier_id" => $supplier_id,
+    //                     "order_id" => $order_id,
+    //                     "product_id" => $item->product_id,
+    //                     "qty" => $item->qty,
+    //                     "price" => $item->mrp,
+    //                     "cess_tax" => $item->cess_tax,
+    //                     "gst" => $item->gst,
+    //                     "name" => $item->product,
+    //                     "description" => $item->description,
+    //                 ]);
+
+    //                 $gst_total += $item->mrp * $item->qty * $item->gst / 100;
+    //                 $cess_total += $item->mrp * $item->qty * $item->cess_tax / 100;
+    //             }
+
+    //             DB::table("orders_supplier")->where("id", $orderSupplierId)->update([
+    //                 "subtotal" => $supplierSubtotal + $gst_total + $cess_total,
+    //             ]);
+
+    //             $total_amount += $supplierSubtotal + $gst_total + $cess_total;
+    //         }
+
+    //         DB::table('order_estimate')->where('id', $order_id)->update([
+    //             'total_amount' => $total_amount
+    //         ]);
+    //         $customer = DB::table("customers")->where("id", $request->user["customer_id"])->first();
+
+    //         if ($request->pay_mode === 'wallet') {
+
+    //             $wallet = (float)($customer->wallet ?? 0);
+    //             $holdAmount = (float)($customer->hold_amount ?? 0);
+    //             $usedWallet = (float)($customer->used_wallet ?? 0);
+
+    //             if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
+    //                 DB::rollBack();
+    //                 return response()->json([
+    //                     'status' => false,
+    //                     'message' => 'Wallet amount is less than order total.'
+    //                 ], 400);
+    //             }
+
+    //             DB::table('order_estimate')->where('id', $order_id)->update([
+    //                 'payment_status' => "Hold"
+    //             ]);
+
+    //             DB::table("customers")
+    //                 ->where("id", $request->user['customer_id'])
+    //                 ->increment("hold_amount", $total_amount);
+    //         }
+
+    //         DB::table("cart")
+    //             ->where("customer_id", $request->user['customer_id'])
+    //             ->delete();
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'Order placed successfully.',
+    //             'order_id' => $order_id,
+    //             'invoice_no' => $invoice_no
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return response()->json([
+    //             'status' => false,
+    //             'message' => 'Server Error: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function SaveOrder(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -914,7 +1073,7 @@ class ApiController extends Controller
                 "total_amount" => $total_amount,
                 "name" => $request->name ?? $customer->name,
                 "number" => $request->delivery_phone ?? $customer->number,
-                "email" => $customer->email,
+                "email" => $request->delivery_email ?? $customer->email,
                 "address" => $request->delivery_address ?? $customer->address,
                 "state" => $request->delivery_state ?? $customer->state,
                 "district" => $request->delivery_district ?? $customer->district,
@@ -994,12 +1153,57 @@ class ApiController extends Controller
                 ->delete();
 
             DB::commit();
+            try {
 
+                $phone = $request->delivery_phone ?? $customer->number ?? null;
+
+                if ($phone) {
+
+                    $cleanPhone = preg_replace('/\D+/', '', $phone);
+                    if (strlen($cleanPhone) == 10) $cleanPhone = '91' . $cleanPhone;
+                    $sms_number = $cleanPhone;
+                    $smsConfig = config('services.smswala');
+                    $message =
+                            "Dear Customer, your order estimate  has been successfully placed. Order Estimate ID: {$order_id} Total Amount: ₹{$total_amount} - Bulk Basket India.";
+                    $url = "{$smsConfig['url']}?"
+                        . "key={$smsConfig['key']}"
+                        . "&campaign={$smsConfig['campaign']}"
+                        . "&routeid={$smsConfig['routeid']}"
+                        . "&type=text"
+                        . "&contacts={$cleanPhone}"
+                        . "&senderid={$smsConfig['sender']}"
+                        . "&msg=" . urlencode($message)
+                        . "&template_id=1707177546580814268"
+                        . "&pe_id={$smsConfig['pe_id']}";
+
+                    $response = Http::get($url);
+
+                    if ($response->successful()) {
+                        $sms_status = true;
+                        $sms_message = "SMS sent successfully";
+                        Log::info("✅ SMS sent: {$cleanPhone}");
+                    } else {
+                        $sms_status = false;
+                        $sms_message = "SMS failed: " . $response->body();
+                        Log::error("❌ SMS failed: " . $response->body());
+                    }
+                } else {
+                    $sms_status = false;
+                    $sms_message = "Phone number not found";
+                }
+            } catch (\Throwable $e) {
+                $sms_status = false;
+                $sms_message = "SMS Exception: " . $e->getMessage();
+                Log::error("❌ SMS Exception: " . $e->getMessage());
+            }
             return response()->json([
                 'status' => true,
                 'message' => 'Order placed successfully.',
                 'order_id' => $order_id,
-                'invoice_no' => $invoice_no
+                'invoice_no' => $invoice_no,
+                'sms_status' => $sms_status,
+                'sms_message' => $sms_message,
+                'sms_number' => $sms_number
             ]);
         } catch (\Exception $e) {
             DB::rollBack();

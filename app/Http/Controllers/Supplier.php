@@ -454,7 +454,6 @@ class Supplier extends Controller
             foreach ($messages->all() as $error) {
                 if ($count == 0)
                     return redirect()->back()->with('error', $error);
-
                 $count++;
             }
         }
@@ -462,7 +461,6 @@ class Supplier extends Controller
         try {
 
             DB::table('customer_users')->where("id", $request->id)->update(array(
-
                 "name" => $request->name,
                 "number" => $request->number,
                 "email" => $request->email,
