@@ -373,6 +373,8 @@
             var product_list = [];
             $("#product_id, #po_id, #vendor_id").select2({});
 
+
+
             function focusNext(selector) {
                 $(selector).focus().select();
             }
@@ -401,6 +403,7 @@
                     focusNext("#price");
                 }
             });
+
             $("#price").on("keydown", function(e) {
                 if (e.key === "Enter") {
                     e.preventDefault();
@@ -408,6 +411,7 @@
                 }
             });
             $(".btnRefreshProduct").hide();
+
             $("#vendor_id").on("change", function() {
                 // product_list = [];
                 // $("#prodList").html("")
@@ -474,9 +478,10 @@
                 });
 
             });
+
+
             let isAutoSelecting = false;
             $("#po_id").on("change", function() {
-                isPoLoading = true;
                 if (isAutoSelecting) {
                     isAutoSelecting = false; // reset
 
@@ -499,8 +504,9 @@
                     success: function(result) {
                         product_list = [];
                         $("#prodList").html("")
-                        $("#roundOFF").val(result.round_off);
-                        result.data.forEach(element => {
+
+                        result.forEach(element => {
+
                             let product_id = element.product_id;
                             let product_name = element.product_name;
                             let qty = element.qty - element.received_qty;
@@ -516,6 +522,9 @@
                             let actual_qty = element.qty;
                             let stock_inward_det_id = 0;
                             if (qty > 0) {
+
+
+
                                 addProduct(product_id, product_name, qty, mrp, discount,
                                     finalPrice,
                                     gst, mainID, warehouse_id, warehouse,
@@ -526,9 +535,7 @@
                             }
 
                         });
-                        setTimeout(() => {
-                            updateFooter();
-                        }, 100);
+
                     },
                     complete: function() {
                         $(".btnRefreshProduct").html("<i class='fa fa-refresh' ></i>");
@@ -539,6 +546,7 @@
                 });
 
             });
+
             $(".btnRefreshProduct").on("click", function() {
                 $("#vendor_id").trigger("change");
             })
@@ -650,19 +658,25 @@
 
 
                 grandTotal = totalAmount - discountAmount;
-                let roundOFF = parseFloat($("#roundOFF").val()) || 0;
 
-                let finalTotal = grandTotal + roundOFF;
-
-                $("#grandTotal").text(finalTotal.toFixed(2));
                 $("#subTotalAmount").text(subTotal.toFixed(2));
                 $("#totalItem").text(totalItem);
                 $("#totalGst").text(totalGstAmount.toFixed(2));
-                $("#totalamt").text((subTotal + totalGstAmount).toFixed(2));
-                $("#totalBeforeRound").text(grandTotal.toFixed(2));
 
-                // $("#roundOFF").val(roundOff);  
-                // $("#grandTotal").text(roundedTotal);
+                $("#totalamt").text(totalAfterGst);
+                $("#totalBeforeRound").text(grandTotal)
+
+
+                let actualTotal = parseFloat(grandTotal);
+
+                // Round to nearest rupee
+                let roundedTotal = Math.round(actualTotal);
+
+
+
+
+                $("#roundOFF").val(roundedTotal);
+                $("#grandTotal").text(roundedTotal);
 
 
             }
@@ -671,18 +685,13 @@
             });
 
             $("#roundOFF").on("keyup", function() {
-                let roundOFF = parseFloat($(this).val()) || 0;
-                let beforeRound = parseFloat($("#totalBeforeRound").text()) || 0;
-
-                let finalTotal = beforeRound + roundOFF;
-
-                $("#grandTotal").text(finalTotal.toFixed(2));
-            });
+                let roundOFF = parseFloat($("#roundOFF").val()) || 0;
+                $("#grandTotal").text(roundOFF);
+            })
 
             $(document).on("input", "#discount-footer", function() {
                 updateFooter();
             });
-
             $("#addProduct").on("click", function() {
                 var product_id = parseInt($("#product_id").val());
                 var product_name = $("#product_id").find(":selected").text();
@@ -782,6 +791,7 @@
 
                 $("#gstBifurcation").html(html);
             }
+
 
             $(document).on("click", ".remove", function() {
                 let id = parseInt($(this).data("id"));
@@ -943,15 +953,18 @@
 
 
             })
-
             let mst = {!! json_encode($mst) !!};
             let det = {!! json_encode($det) !!};
 
+
             if (mst && Object.keys(mst).length > 0) {
+
+
                 let total = 0;
                 $.each(mst, function(i, o) {
 
                     $("select[name=" + i + "]").val(o)
+
                 })
                 $("#invoice_no").val(mst.invoice_no)
                 $("#invoice_date").val(mst.invoice_date)
@@ -965,9 +978,11 @@
                     $("#po_id").trigger("change")
                 }, 300);
 
+
+
+
+
                 let currency = mst.currency;
-                let round_off = mst.round_off;
-                console.log(mst);
                 det.forEach(element => {
                     let product_id = element.product_id;
                     let product_name = element.name;
@@ -995,8 +1010,9 @@
                     mainID++;
                 });
                 setTimeout(() => {
-                    $("#roundOFF").val(round_off);
-                    updateFooter(); 
+
+                    $("#roundOFF").val(mst.round_off)
+                    $("#grandTotal").text(mst.round_off);
                 }, 500);
 
             }

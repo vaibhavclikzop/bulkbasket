@@ -38,8 +38,8 @@
                         <label for="">Pay Mode</label>
                         <select name="pay_mode" id="pay_mode" class="form-control" required>
                             <option value="">Select Pay mode</option>
-                            <option value="Wallet" selected>Wallet</option>
-                            <option value="Online">Online</option>
+                            <option value="wallet" selected>Wallet</option>
+                            <option value="online">Online</option>
                         </select>
                     </div>
                     <div class="mx-2 " style="width: 60%">
@@ -55,7 +55,7 @@
                     <div class="d-flex ">
                         <div class="">
                             <label for="">Select State</label>
-                            <select name="billing_state"   class="form-control state" disabled>
+                            <select name="billing_state" class="form-control state" disabled>
                                 <option value="">Select State</option>
                                 @foreach ($state as $item)
                                     <option value="{{ $item->state }}"> {{ $item->state }}</option>
@@ -65,23 +65,23 @@
                         </div>
                         <div class="mx-2">
                             <label for="">District</label>
-                            <select name="billing_district"   class="form-control district" disabled>
+                            <select name="billing_district" class="form-control district" disabled>
                                 <option value="">Select District</option>
                             </select>
                         </div>
                         <div>
                             <label for="">City</label>
-                            <input type="text" name="billing_city"   class="form-control city" disabled
+                            <input type="text" name="billing_city" class="form-control city" disabled
                                 placeholder="Enter City">
                         </div>
                         <div class="mx-2" style="width: 55%">
                             <label for="">Address</label>
-                            <input type="text" placeholder="Enter Address" name="billing_address"  
+                            <input type="text" placeholder="Enter Address" name="billing_address"
                                 class="form-control address" disabled>
                         </div>
 
                     </div>
-                </div>  
+                </div>
                 <div class="mt-3 mb-4">
                     <h6>Shipping Address</h6>
                     <div class="d-flex ">
@@ -113,7 +113,7 @@
                         </div>
 
                     </div>
-                </div>  
+                </div>
                 <div class="mt-2">
                     <div class="d-flex ">
                         <div class="col-md-2" style="width: 235px !important"><label for="">Product
@@ -329,17 +329,17 @@
             $("#product_id").select2({
                 width: "100%",
                 placeholder: "Search Product",
-                minimumInputLength: 2,  
+                minimumInputLength: 2,
                 ajax: {
                     url: "/supplier/getOrderProducts",
                     type: "POST",
-                    delay: 300,  
+                    delay: 300,
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                     },
                     data: function(params) {
                         return {
-                            search: params.term,  
+                            search: params.term,
                             customer_id: $("#customer_id").val()
                         };
                     },
@@ -470,7 +470,7 @@
             })
 
             function addProduct(product_id, product_name, qty, price, gst, cess_tax, mainID) {
-                let total = price ^ qty;
+               let total = price * qty;
 
                 let html = `<tr>
                             <td>${mainID}</td>
@@ -482,7 +482,7 @@
                             <td>${total}</td>
                     
                              <td>
-                                <spam type="button" class="remove text-danger" data-id="${sno}">
+                                <spam type="button" class="remove text-danger" data-id="${mainID}">
                                     Delete
                                 </span>    
                             </td>
@@ -612,6 +612,20 @@
                 $("#gstBifurcation").html(html);
             }
 
+            $(document).on("click", ".remove", function() {
+                let index = $(this).data("id");
+                product_list = product_list.filter(item => item.mainID != index);
+                $(this).closest("tr").remove();
+                updateSerialNumbers();
+                updateFooter();
+                gstBifurcation();
+            });
+
+            function updateSerialNumbers() {
+                $("#prodList tr").each(function(index) {
+                    $(this).find("td:first").text(index + 1);
+                });
+            }
 
             $("#saveOrder").on("click", function() {
                 $('#prod_list').val(JSON.stringify(product_list));

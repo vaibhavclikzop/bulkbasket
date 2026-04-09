@@ -87,11 +87,16 @@
                             @php
                                 $subtotal = $item->price * $item->qty;
                                 $discount = $item->discount ?? 0;
-                                $discount_type = $item->discount_type ?? 'percent';
-                                if ($discount_type == 'percent') {
-                                    $discount_amt = ($subtotal * $discount) / 100;
-                                } else {
-                                    $discount_amt = $discount;
+                              
+                                $discount_amt = 0;
+                                // $discount_type = $item->discount_type ?? 'percent';
+                                // if ($discount_type == 'percent') {
+                                //     $discount_amt = ($subtotal * $discount) / 100;
+                                // } else {
+                                //     $discount_amt = $discount;
+                                // }
+                                if ($item->discount_type == '%') {
+                                    $discount_amt = ($subtotal * ($item->discount ?? 0)) / 100;
                                 }
                                 $taxable = $subtotal - $discount_amt;
                                 $gst_amt = ($taxable * ($item->gst ?? 0)) / 100;
@@ -113,7 +118,8 @@
                                 <td style="border:1px solid; padding:2px">{{ $item->qty }}</td>
                                 {{-- <td style="border:1px solid; padding:2px">{{ $item->discount_type  ?? "N/A" }}</td> --}}
                                 <td style="border:1px solid; padding:2px">{{ $item->discount }}
-                                    ({{ $item->discount_type ?? 'N/A' }})</td>
+                                    ({{ $item->discount_type ?? 'N/A' }})
+                                </td>
                                 <td style="border:1px solid; padding:2px">{{ number_format($taxable, 2) }}</td>
                                 <td style="border:1px solid; padding:2px">{{ $item->gst }}</td>
                                 <td style="border:1px solid; padding:2px">{{ number_format($total, 2) }}</td>
@@ -123,18 +129,23 @@
 
                     <tfoot>
                         <tr>
-                            <th style="border:1px solid; padding:2px" colspan="7"><b>Total</b></th>
-                            <th style="border:1px solid; padding:2px">{{ $qty }}</th>
+                            <th style="border:1px solid; padding:2px" colspan="6"><b>Total</b></th>
+                            <th style="border:1px solid; padding:2px" colspan="2">{{ $qty }}</th>
                             {{-- <th style="border:1px solid; padding:2px"></th> --}}
-                            <th style="border:1px solid; padding:2px">{{ number_format($total_taxable, 2) }}</th>
+                            <th style="border:1px solid; padding:2px"  >{{ number_format($total_taxable, 2) }}</th>
                             <th style="border:1px solid; padding:2px"></th>
-                            <th style="border:1px solid; padding:2px">{{ number_format($gross_total, 2) }}</th>
+                            <th style="border:1px solid; padding:2px">{{ number_format($gross_total, 2) }}  
+                            </th>
                         </tr>
 
                         <tr>
                             <th style="border:1px solid; padding:2px" colspan="10"><b>R/O Total Amount</b></th>
                             <th style="border:1px solid; padding:2px">
-                                {{ round($gross_total, 0, PHP_ROUND_HALF_UP) }}
+                                @php
+                                    $final_total = $gross_total + $stock_inward_mst->round_off ?? 0.00;
+                                @endphp
+                                {{ number_format($final_total, 2) }}
+                                {{-- {{ round($gross_total, 0, PHP_ROUND_HALF_UP) }} --}}
                             </th>
                         </tr>
                     </tfoot>

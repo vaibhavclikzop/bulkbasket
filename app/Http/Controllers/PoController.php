@@ -461,6 +461,10 @@ class PoController extends Controller
 
     public function GetPODet(Request $request)
     {
+        $po_mst = DB::table("po_mst")
+            ->select("id", "round_off")
+            ->where("id", $request->id)
+            ->first();
         $po_det = DB::table("po_det as a")
             ->select(
                 "a.qty",
@@ -482,17 +486,55 @@ class PoController extends Controller
             )
             ->leftJoin("products as b", "a.product_id", "=", "b.id")
             ->leftJoin("product_brand as c", "b.brand_id", "=", "c.id")
-            ->leftJoin("warehouse_product as wp", "wp.product_id", "=", "b.id")
-            ->leftJoin("warehouse_location as wl", function ($join) {
+            ->join("warehouse_product as wp", "wp.product_id", "=", "b.id")
+            ->join("warehouse_location as wl", function ($join) {
                 $join->on("wl.id", "=", "wp.warehouse_location_id")
                     ->on("wl.warehouse_id", "=", "wp.warehouse_id");
             })
-            ->leftJoin("warehouse as w", "w.id", "=", "wl.warehouse_id")
+            ->join("warehouse as w", "w.id", "=", "wl.warehouse_id")
             ->where("a.mst_id", $request->id)
             ->get();
-
-        return response()->json($po_det);
+        return response()->json([
+            "status" => true,
+            "round_off" => $po_mst->round_off ?? 0,
+            "data" => $po_det
+        ]);
     }
+
+    // public function GetPODet(Request $request)
+    // {
+    //     $po_det = DB::table("po_det as a")
+    //         ->select(
+    //             "a.qty",
+    //             "a.price",
+    //             "a.discount",
+    //             "a.discount_type",
+    //             "a.received_qty",
+    //             "b.id as product_id",
+    //             "b.name as product_name",
+    //             "b.gst",
+    //             "b.article_no",
+    //             "wl.id as location_id",
+    //             "wl.location_code",
+    //             "w.id as warehouse_id",
+    //             "w.name as warehouse_name",
+    //             "a.id",
+    //             "a.mrp",
+
+    //         )
+    //         ->leftJoin("products as b", "a.product_id", "=", "b.id")
+    //         ->leftJoin("product_brand as c", "b.brand_id", "=", "c.id")
+    //         ->leftJoin("warehouse_product as wp", "wp.product_id", "=", "b.id")
+    //         ->leftJoin("warehouse_location as wl", function ($join) {
+    //             $join->on("wl.id", "=", "wp.warehouse_location_id")
+    //                 ->on("wl.warehouse_id", "=", "wp.warehouse_id");
+    //         })
+    //         ->leftJoin("warehouse as w", "w.id", "=", "wl.warehouse_id")
+    //         ->where("a.mst_id", $request->id)
+    //         ->get();
+
+    //     return response()->json($po_det);
+    // }
 
     public function GetWarehouseLocations(Request $request)
     {
@@ -672,6 +714,7 @@ class PoController extends Controller
                     "company_id" => $request->vendor_id,
                     "discount_type" => $discount_type,
                     "discount" => $request->totalDiscount,
+                    "round_off" => $request->roundOFF,
                 ));
             }
             $status = 0;
@@ -817,7 +860,7 @@ class PoController extends Controller
             ->select(
                 "a.*",
                 "a.invoice_no as inv",
-                "b.name as vendor_name",
+                "b.company as vendor_name",
                 "b.email as vendor_email",
                 "b.gst as vendor_gst",
                 "b.number as vendor_number",
@@ -839,28 +882,7 @@ class PoController extends Controller
             ->leftJoin("suppliers as d", "a.supplier_id", "d.id")
             ->where("a.id", $id)
             ->where("a.supplier_id", $request->user["supplier_id"])
-            ->first();
-
-        // $stock_inward_det = DB::table("stock_inward_det as a")
-        //     ->select(
-        //         "a.*",
-        //         "b.name as product_name",
-        //         "b.gst",
-        //         "b.cess_tax",
-        //         "b.article_no",
-        //         "b.hsn_code",
-        //         "c.name as uom",
-        //         "d.name as brand",
-        //         "w.name as warehouse_name",
-        //         "l.location_code"
-        //     )
-        //     ->join("products as b", "a.product_id", "b.id")
-        //     ->join("product_uom as c", "b.uom_id", "c.id")
-        //     ->join("product_brand as d", "b.brand_id", "d.id")
-        //     ->leftJoin("warehouse as w", "a.warehouse_id", "w.id")
-        //     ->leftJoin("warehouse_location as l", "a.location_id", "l.id")
-        //     ->where("a.mst_id", $id)
-        //     ->get();
+            ->first(); 
         $stock_inward_det = DB::table("stock_inward_det as a")
             ->select(
                 "a.*",
@@ -875,18 +897,40 @@ class PoController extends Controller
                 "w.name as warehouse_name",
                 "l.location_code"
             )
-            ->join("products as b", "a.product_id", "b.id")
-            ->join("product_uom as c", "b.uom_id", "c.id")
+            ->leftJoin("products as b", "a.product_id", "b.id")
+            ->leftJoin("product_uom as c", "b.uom_id", "c.id")
             ->leftJoin("product_brand as d", "b.brand_id", "d.id")
-            ->join("warehouse_product as wp", function ($join) {
+            ->leftJoin("warehouse_product as wp", function ($join) {
                 $join->on("a.product_id", "=", "wp.product_id")
                     ->on("a.warehouse_id", "=", "wp.warehouse_id")
                     ->on("a.location_id", "=", "wp.warehouse_location_id");
             })
-            ->join("warehouse as w", "a.warehouse_id", "w.id")
-            ->join("warehouse_location as l", "a.location_id", "l.id")
+            ->leftJoin("warehouse as w", "a.warehouse_id", "w.id")
+            ->leftJoin("warehouse_location as l", "a.location_id", "l.id")
             ->where("a.mst_id", $id)
             ->get();
+        // $stock_inward_det = DB::table("stock_inward_det as a")
+        //     ->select(
+        //         "a.*",
+        //         "b.name as product_name",
+        //         "b.gst",
+        //         "b.cess_tax",
+        //         "b.article_no",
+        //         "b.hsn_code",
+        //         "c.name as uom",
+        //         "d.name as brand",
+        //         "w.name as warehouse_name",
+        //         "l.location_code"
+        //     )
+        //     ->leftJoin("products as b", "a.product_id", "b.id")
+        //     ->leftJoin("product_uom as c", "b.uom_id", "c.id")
+        //     ->leftJoin("product_brand as d", "b.brand_id", "d.id")
+        //     ->leftJoin("warehouse_product as wp", "a.product_id", "wp.product_id")
+        //     ->leftJoin("warehouse as w", "wp.warehouse_id", "w.id")
+        //     ->leftJoin("warehouse_location as l", "wp.warehouse_location_id", "l.id")
+
+        //     ->where("a.mst_id", $id)
+        //     ->get();
         return view("suppliers.inward-report-view", compact("stock_inward_mst", "stock_inward_det"));
     }
 
@@ -961,7 +1005,7 @@ class PoController extends Controller
 
             ->where("a.mst_id", $id)
             ->get();
-
+        
         return view("suppliers.inward-report-slip", compact("stock_inward_mst", "stock_inward_det"));
     }
 
@@ -1138,15 +1182,15 @@ class PoController extends Controller
 
             ->leftJoin("warehouse_location as l", "f.location_id", "=", "l.id")
             ->leftJoin("warehouse as h", "l.warehouse_id", "=", "h.id");
-            if ($vendor_id) {
-                $filter->where("a.vendor_id",$vendor_id);
-            }
-             if ($fromDt) {
-                $filter->whereDate("a.invoice_date",">=",$fromDt);
-            }
-            if ($toDt) {
-                $filter->whereDate("a.invoice_date","<=",$toDt);
-            }
+        if ($vendor_id) {
+            $filter->where("a.vendor_id", $vendor_id);
+        }
+        if ($fromDt) {
+            $filter->whereDate("a.invoice_date", ">=", $fromDt);
+        }
+        if ($toDt) {
+            $filter->whereDate("a.invoice_date", "<=", $toDt);
+        }
 
 
         $data =  $filter->where("a.supplier_id", $request->user['supplier_id'])

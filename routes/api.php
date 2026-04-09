@@ -122,7 +122,7 @@ Route::middleware([customerMobileMiddleware::class])->group(function () {
     Route::get('mobile/get-states', [mobileAppController::class, 'getStates'])->name('mobile/get-states');
     Route::get('mobile/get-district/{state}', [mobileAppController::class, 'getDistrict'])->name('mobile/get-district');
     Route::post('mobile/delete-address', [mobileAppController::class, 'deleteAddress'])->name('mobile/delete-address');
-    Route::get('mobile/get-product-details/{id}', [mobileAppController::class, 'j'])->name('mobile/get-product-details');
+    Route::get('mobile/get-product-details/{id}', [mobileAppController::class, 'getProductDetails'])->name('mobile/get-product-details');
     Route::get('mobile/get-product-by-brand/{brand_id}/{category_id?}/{sub_category_id?}/{ss_category_id?}', [mobileAppController::class, 'getProductByBrand'])->name('mobile/get-product-by-brand');
     Route::get('mobile/get-brands', [mobileAppController::class, 'getBrands'])->name('mobile/get-brands');
     Route::post('mobile/save-order', [mobileAppController::class, 'saveOrder'])->name('mobile/save-order');

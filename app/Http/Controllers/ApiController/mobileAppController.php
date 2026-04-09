@@ -811,8 +811,10 @@ class mobileAppController extends Controller
                     "a.gst",
                     "a.cess_tax",
                     "a.mrp",
+                    "a.base_price as base_price",
                     "a.is_discount",
                     "a.per_uom",
+                    "a.base_price",
                     "um.name as uom_name",
                     "pt.name as product_type",
                     "a.product_sub_sub_category",
@@ -910,10 +912,8 @@ class mobileAppController extends Controller
                         "name" => $product->name,
                         "gst" => $product->gst,
                         "cess_tax" => $product->cess_tax,
-
-                        // ✅ IMPORTANT CHANGE
-                        "price" => $final_price,
-
+                        // "price" => $final_price,
+                        "price" => $product->base_price,
                         "mrp" => $product->mrp,
                         "per_uom" => $product->per_uom,
                         "uom_name" => $product->uom_name,
@@ -1110,36 +1110,29 @@ class mobileAppController extends Controller
                         : 0
                 ];
             }
-            $taxable = 0;
             $totalAmount = 0;
-            $gstBifurcation = [];
+            $totalGST = 0;
+            $taxable = 0;
 
             foreach ($result as $value) {
 
-                $amount = $value["price"] * $value["qty"]; // taxable amount
-                $gst = $value["gst"]; // 5,12,18
+                $amount = $value["price"] * $value["qty"];
+                $gst = $value["gst"];
 
                 $taxable += $amount;
 
                 $gstAmount = ($amount * $gst) / 100;
 
-                if (!isset($gstBifurcation[$gst])) {
-                    $gstBifurcation[$gst] = (object)[
-                        "percentage" => number_format($gst, 2),
-                        "price" => 0
-                    ];
-                }
-
-                $gstBifurcation[$gst]->price += $gstAmount;
-
-
-
+                $totalGST += $gstAmount;  
 
                 $totalAmount += $amount + $gstAmount;
             }
-            $gstBifurcation = array_values($gstBifurcation);
-            $orderSummary = array("taxable" => $taxable, "gstBifurcation" => $gstBifurcation, "totalAmount" => $totalAmount);
 
+            $orderSummary = [
+                "taxable" => round($taxable, 2),
+                "gst" => round($totalGST, 2), 
+                "totalAmount" => round($totalAmount, 2)
+            ];
 
             return response()->json([
                 'error' => false,
@@ -1662,33 +1655,46 @@ class mobileAppController extends Controller
             ->where("a.id", $id)
             ->where("a.active", 1)
             ->first();
-
         if (!$product) {
             return response()->json(["status" => false, "message" => "Product not found"], 404);
         }
-
         unset($product->temp_image);
+        $cartItem = null;
+        $wishlistItem = null;
+        $customerId = $request->user["customer_id"];
+        if ($customerId) {
+            $cartItem = DB::table("cart")
+                ->where("customer_id", $customerId)
+                ->where("product_id", $product->id)
+                ->first();
 
+            $wishlistItem = DB::table("wishlist")
+                ->where("customer_id", $customerId)
+                ->where("product_id", $product->id)
+                ->first();
+        }
+        $product->cart = $cartItem ? [
+            "id" => $cartItem->id,
+            "customer_id" => $cartItem->customer_id,
+            "product_id" => $cartItem->product_id,
+            "qty" => $cartItem->qty,
+            "created_at" => $cartItem->created_at ?? null,
+            "updated_at" => $cartItem->updated_at ?? null,
+        ] : null;
+        $product->cart_status = $cartItem ? true : false;
+        $product->wishlist_status = $wishlistItem ? true : false;
         $details = DB::table("product_price")
             ->where("product_id", $product->id)
             ->orderBy("qty", "asc")
             ->get();
-
         $product->tiers = $details;
-
-        // =============================
-        // ✅ FINAL PRICE (Correct Logic)
-        // =============================
         $final_price = $product->base_price;
-
         if ($details->count() > 0) {
-
             foreach ($details as $tier) {
                 if ($tier->price) {
                     $final_price = $tier->price;
                 }
             }
-
             if ($product->is_discount == 1 && $product->discount > 0) {
                 $discountAmount = ($final_price * $product->discount) / 100;
                 $final_price = round($final_price - $discountAmount, 2);
@@ -1700,24 +1706,13 @@ class mobileAppController extends Controller
                 $final_price = round($product->base_price - $discountAmount, 2);
             }
         }
-
         $product->final_price = $final_price;
-
-        // =============================
-        // ✅ DISCOUNT %
-        // =============================
         $price_for_discount = $final_price ?? $product->base_price;
-
         $discount = 0;
         if ($product->mrp > 0) {
             $discount = round((($product->mrp - $price_for_discount) / $product->mrp) * 100, 2);
         }
-
         $product->discount = $discount;
-
-        // =============================
-        // RELATED PRODUCTS (FIXED)
-        // =============================
         $related_products = DB::table("products as a")
             ->select(
                 "a.*",
@@ -1739,9 +1734,10 @@ class mobileAppController extends Controller
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
             ->join("product_type as f", "a.product_type_id", "f.id")
             ->where("a.sub_category_id", $product->sub_category_id)
+            ->where("a.id", "!=", $product->id)
             ->where("a.active", 1)
             ->get()
-            ->map(function ($item) {
+            ->map(function ($item) use ($customerId) {
 
                 $tiers = DB::table("product_price")
                     ->where("product_id", $item->id)
@@ -1763,19 +1759,30 @@ class mobileAppController extends Controller
                         $final_price = round($final_price - (($final_price * $item->discount) / 100), 2);
                     }
                 }
+                $cartItem = null;
+                $wishlistItem = null;
+                if ($customerId) {
+                    $cartItem = DB::table("cart")
+                        ->where("customer_id", $customerId)
+                        ->where("product_id", $item->id)
+                        ->first();
 
+                    $wishlistItem = DB::table("wishlist")
+                        ->where("customer_id", $customerId)
+                        ->where("product_id", $item->id)
+                        ->first();
+                }
                 $item->price = $final_price;
                 $item->discount = ($item->mrp > 0)
                     ? round((($item->mrp - $final_price) / $item->mrp) * 100, 2)
                     : 0;
                 $item->tiers = $tiers;
-
+                $item->cart = $cartItem ?? null;
+                $item->cart_status = $cartItem ? true : false;
+                $item->wishlist = $wishlistItem ?? null;
+                $item->wishlist_status = $wishlistItem ? true : false;
                 return $item;
             });
-
-        // =============================
-        // BRAND PRODUCTS (FIXED)
-        // =============================
         $brand_products = DB::table("products as a")
             ->select(
                 "a.*",
@@ -1795,24 +1802,20 @@ class mobileAppController extends Controller
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-             ->join("product_type as f", "a.product_type_id", "f.id")
+            ->join("product_type as f", "a.product_type_id", "f.id")
             ->where("a.brand_id", $product->brand_id)
             ->where("a.active", 1)
             ->get()
-            ->map(function ($item) {
-
+            ->map(function ($item) use ($customerId) {
                 $tiers = DB::table("product_price")
                     ->where("product_id", $item->id)
                     ->orderBy("qty", "asc")
                     ->get();
-
                 $final_price = $item->base_price;
-
                 if ($tiers->count() > 0) {
                     foreach ($tiers as $tier) {
                         $final_price = $tier->price;
                     }
-
                     if ($item->is_discount == 1 && $item->discount > 0) {
                         $final_price = round($final_price - (($final_price * $item->discount) / 100), 2);
                     }
@@ -1821,16 +1824,29 @@ class mobileAppController extends Controller
                         $final_price = round($final_price - (($final_price * $item->discount) / 100), 2);
                     }
                 }
-
+                $cartItem = null;
+                $wishlistItem = null;
+                if ($customerId) {
+                    $cartItem = DB::table("cart")
+                        ->where("customer_id", $customerId)
+                        ->where("product_id", $item->id)
+                        ->first();
+                    $wishlistItem = DB::table("wishlist")
+                        ->where("customer_id", $customerId)
+                        ->where("product_id", $item->id)
+                        ->first();
+                }
                 $item->price = $final_price;
                 $item->discount = ($item->mrp > 0)
                     ? round((($item->mrp - $final_price) / $item->mrp) * 100, 2)
                     : 0;
                 $item->tiers = $tiers;
-
+                $item->cart = $cartItem ?? null;
+                $item->cart_status = $cartItem ? true : false;
+                $item->wishlist = $wishlistItem ?? null;
+                $item->wishlist_status = $wishlistItem ? true : false;
                 return $item;
             });
-
         $images = DB::table("product_images as a")
             ->select(
                 "a.*",
@@ -1843,7 +1859,6 @@ class mobileAppController extends Controller
                 ")
             )
             ->where("product_id", $id)->get();
-
         return response()->json([
             "status" => true,
             "message" => "Product details fetched successfully",
@@ -1856,7 +1871,6 @@ class mobileAppController extends Controller
             ]
         ], 200);
     }
-
 
     public function getProductByBrand(Request $request, $brand_id, $category_id = null, $sub_category_id = null, $ss_category_id = null)
     {

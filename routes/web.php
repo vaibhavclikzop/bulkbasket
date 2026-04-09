@@ -16,6 +16,7 @@ use App\Http\Controllers\StaffManagement;
 use App\Http\Controllers\CustomerProductPrice;
 use App\Http\Controllers\OutWardController;
 use App\Http\Controllers\DispatchController;
+use App\Http\Controllers\eInvoice\EInvoiceController;
 use App\Http\Controllers\EstimateController;
 use App\Http\Controllers\exports\excelExport;
 use App\Http\Controllers\PoController;
@@ -380,6 +381,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('supplier/cancelOutwardChallan', [OutWardController::class, 'cancelOutwardChallan'])->name('supplier/cancelOutwardChallan');
     Route::post('supplier/DispatchChallan', [OutWardController::class, 'DispatchChallan'])->name('supplier/DispatchChallan');
 
+    Route::post('/supplier/generateEInvoice', [EInvoiceController::class, 'generateEInvoice'])->name('/supplier/generateEInvoice');
 
     //Dispatch  Plan
     Route::get('supplier/mode-of-transport', [DispatchController::class, 'ModeOfTransport'])->name('supplier/mode-of-transport');

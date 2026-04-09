@@ -36,7 +36,6 @@ class EstimateController extends Controller
 
     public function saveEstimate(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
             'delivery_date' => 'required',
             'address' => 'required',
@@ -46,162 +45,123 @@ class EstimateController extends Controller
             "customer_id" => 'required',
             'pay_mode' => 'required',
         ]);
-
         if ($validator->fails()) {
             return response()->json([
                 'error' => true,
                 'message' => $validator->errors()->first()
             ], 422);
         }
-
         DB::beginTransaction();
-
-        $prod_list = json_decode($request->prod_list);
-        if (!$prod_list) {
-            return redirect()->back()->with('error', "Select at least one product");
-        }
-        foreach ($prod_list as $key => $value) {
-
-            DB::table("cart")->insert(array(
-                "product_id" => $value->product_id,
-                "qty" => $value->qty,
-                "customer_id" => $request->customer_id,
-            ));
-        }
-
         try {
-            $cart = DB::table("cart as a")
-                ->select("a.*", "b.supplier_id", "b.base_price as mrp", "b.name as product", "b.description", "b.cess_tax", "b.gst")
-                ->join("products as b", "a.product_id", "=", "b.id")
-                ->where("a.customer_id", $request->customer_id)
-                ->get()
-                ->groupBy("supplier_id");
-
-            if ($cart->isEmpty()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Cart is empty.'
-                ], 400);
+            $prod_list = json_decode($request->prod_list);
+            if (!$prod_list || count($prod_list) == 0) {
+                return redirect()->back()->with('error', "Select at least one product");
             }
+            $products = [];
+            foreach ($prod_list as $item) {
+                $product = DB::table("products")
+                    ->where("id", $item->product_id)
+                    ->first();
+                if (!$product) continue;
+                $price = $item->price;
+                $tiers = DB::table("product_price")
+                    ->where("product_id", $item->product_id)
+                    ->orderBy("qty", "asc")
+                    ->get();
 
-            // Tier pricing
-            foreach ($cart as $k => $v) {
-                foreach ($v as $item) {
-                    $tiers = DB::table("product_price")
-                        ->where("product_id", $item->product_id)
-                        ->orderBy("qty", "asc")
-                        ->get();
-
-                    foreach ($tiers as $tier) {
-                        if ($item->qty >= $tier->qty) {
-                            $item->mrp = $tier->price;
-                        }
+                foreach ($tiers as $tier) {
+                    if ($item->qty >= $tier->qty) {
+                        $price = $tier->price;
                     }
                 }
+                $products[] = (object)[
+                    "supplier_id" => $product->supplier_id,
+                    "product_id" => $product->id,
+                    "name" => $product->name,
+                    "description" => $product->description,
+                    "qty" => $item->qty,
+                    "price" => $price,
+                    "gst" => $product->gst,
+                    "cess_tax" => $product->cess_tax,
+                ];
             }
-
-            $customer = $request->delivery_address === "Office"
-                ? DB::table("customers")->where("id", $request->customer_id)->first()
-                : DB::table("customer_users")->where("id", $request->user["id"])->first();
-
+            $grouped = collect($products)->groupBy("supplier_id");
+            $customer = DB::table("customers")->where("id", $request->customer_id)->first();
             $total_amount = 0;
             $invoice_no = 'INV-' . $request->customer_id . date('YmdHis');
-
             $order_id = DB::table("order_estimate")->insertGetId([
                 "customer_id" => $request->customer_id,
                 "invoice_no" => $invoice_no,
                 "pay_mode" => $request->pay_mode,
                 "payment_status" => "Pending",
                 "order_status" => "Pending",
-                "total_amount" => $total_amount,
-                "name" => $request->name ?? $customer->name,
-                "number" => $request->delivery_phone ?? $customer->number,
+                "total_amount" => 0,
+                "name" => $customer->name,
+                "number" => $customer->number,
                 "email" => $customer->email,
-                "address" => $request->address ?? $customer->address,
-                "state" => $request->state ?? $customer->state,
-                "district" => $request->district ?? $customer->district,
-                "city" => $request->city ?? $customer->city,
-                "pincode" => $request->pincode ?? $customer->pincode,
+                "address" => $request->address,
+                "state" => $request->state,
+                "district" => $request->district,
+                "city" => $request->city,
+                "pincode" => $customer->pincode,
                 "remarks" => $request->remarks ?? null,
-                "delivery_date" => $request->delivery_date ?? null,
+                "delivery_date" => $request->delivery_date,
             ]);
-
-            foreach ($cart as $supplier_id => $items) {
-                $supplierSubtotal = $items->sum(fn($item) => $item->mrp * $item->qty);
-
-                $orderSupplierId = DB::table("orders_supplier")->insertGetId([
-                    "order_id" => $order_id,
-                    "supplier_id" => $supplier_id,
-                    "subtotal" => $supplierSubtotal,
-                    "shipping_status" => "pending",
-                ]);
-
+            foreach ($grouped as $supplier_id => $items) {
+                $supplierSubtotal = 0;
                 $gst_total = 0;
                 $cess_total = 0;
-
                 foreach ($items as $item) {
+                    $rowTotal = $item->price * $item->qty;
+                    $rowGst = ($rowTotal * $item->gst) / 100;
+                    $rowCess = ($rowTotal * $item->cess_tax) / 100;
+                    $supplierSubtotal += $rowTotal;
+                    $gst_total += $rowGst;
+                    $cess_total += $rowCess;
                     DB::table("order_estimate_item")->insert([
                         "supplier_id" => $supplier_id,
                         "order_id" => $order_id,
                         "product_id" => $item->product_id,
                         "qty" => $item->qty,
-                        "price" => $item->mrp,
+                        "price" => $item->price,
                         "cess_tax" => $item->cess_tax,
                         "gst" => $item->gst,
-                        "name" => $item->product,
+                        "name" => $item->name,
                         "description" => $item->description,
                     ]);
-
-                    $gst_total += $item->mrp * $item->qty * $item->gst / 100;
-                    $cess_total += $item->mrp * $item->qty * $item->cess_tax / 100;
                 }
-
-                DB::table("orders_supplier")->where("id", $orderSupplierId)->update([
-                    "subtotal" => $supplierSubtotal + $gst_total + $cess_total,
+                $finalSupplierTotal = $supplierSubtotal + $gst_total + $cess_total;
+                DB::table("orders_supplier")->insert([
+                    "order_id" => $order_id,
+                    "supplier_id" => $supplier_id,
+                    "subtotal" => $finalSupplierTotal,
+                    "shipping_status" => "pending",
                 ]);
-
-                $total_amount += $supplierSubtotal + $gst_total + $cess_total;
-            }
-
+                $total_amount += $finalSupplierTotal;
+            } 
             DB::table('order_estimate')->where('id', $order_id)->update([
                 'total_amount' => $total_amount
-            ]);
-            $customer = DB::table("customers")->where("id", $request->customer_id)->first();
-
+            ]); 
             if ($request->pay_mode === 'wallet') {
-
                 $wallet = (float)($customer->wallet ?? 0);
                 $holdAmount = (float)($customer->hold_amount ?? 0);
                 $usedWallet = (float)($customer->used_wallet ?? 0);
-
                 if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
                     DB::rollBack();
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Wallet amount is less than order total.'
-                    ], 400);
+                    return redirect()->back()->with('error', 'Wallet amount is less than order total.');
                 }
-
                 DB::table('order_estimate')->where('id', $order_id)->update([
                     'payment_status' => "Hold"
                 ]);
-
                 DB::table("customers")
                     ->where("id", $request->customer_id)
                     ->increment("hold_amount", $total_amount);
             }
-
-            DB::table("cart")
-                ->where("customer_id", $request->customer_id)
-                ->delete();
-
             DB::commit();
-
-            return redirect()->back()->with('success', "Save Successfully");
+            return redirect()->back()->with('success', "Estimate Saved Successfully");
         } catch (\Throwable $th) {
             DB::rollBack();
             return redirect()->back()->with('error', $th->getMessage());
         }
-        return redirect()->back()->with('success', "Save Successfully");
     }
 }
