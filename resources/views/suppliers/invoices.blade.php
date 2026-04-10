@@ -65,7 +65,13 @@
                                 @if ($item->is_e_invoice == 1)
                                     <a class="btn btn-info btn-sm" title="View E-Invoice" href="{{ $item->EinvoicePdf }}"
                                         target="_blank">E-Invoice</a>
+                                    <button class="btn btn-info btn-sm sendEBilling" value="{{ $item->invoice_id }}"
+                                        data-bs-toggle="tooltip" data-bs-placement="top"
+                                        title="Convert Invoice to E-Billing">
+                                        <i class="fa-solid fa-file"></i>
+                                    </button>
                                 @endif
+
                             </td>
                         </tr>
                     @endforeach
@@ -119,6 +125,31 @@
                             Cancel
                         </button>
                         <button type="button" class="btn btn-primary confirmEInvoice">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <form action="#" method="POST">
+        <div class="modal fade" id="eBillingModal">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitleId">
+                            Convert Invoice To E-Invoice
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="invoice_ids" name="invoice_id">
+                        Are You Sure You Want E-Billing
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary generateEWB">Save</button>
                     </div>
                 </div>
             </div>
@@ -190,6 +221,82 @@
                     toastr.error(msg, "error");
                     confirmBtn.prop("disabled", false).text("Save");
                     if (btn) btn.prop("disabled", false);
+                }
+            });
+        });
+    </script>
+
+    <script>
+        let selectedBtns = null;
+
+        // open modal
+        $(document).on("click", ".sendEBilling", function() {
+            let invoice_id = $(this).val();
+            $("#invoice_ids").val(invoice_id);
+            selectedBtns = $(this);
+            $("#eBillingModal").modal("show");
+        });
+
+
+        // generate EWB
+        $(document).on("click", ".generateEWB", function() {
+
+            let confirmBtn = $(this);
+            let invoice_id = $("#invoice_ids").val(); // ✅ FIXED
+
+            $.ajax({
+                url: "{{ route('/supplier/generateEwayBill') }}",
+                type: "POST",
+                data: {
+                    invoice_id: invoice_id
+                },
+                headers: {
+                    "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
+                },
+
+                beforeSend: function() {
+                    confirmBtn.prop("disabled", true).text("Processing...");
+                },
+
+                success: function(res) {
+
+                    if (res.status === true) {
+
+                        toastr.success(res.message || "Success");
+
+                        $("#eBillingModal").modal("hide");
+                        confirmBtn.prop("disabled", false).text("Save");
+                        if (selectedBtns) {
+                            selectedBtns
+                                .prop("disabled", true)
+                                .removeClass("btn-info")
+                                .addClass("btn-success")
+                                .html('<i class="fa-solid fa-check"></i> EWB Done');
+                        }
+
+                    } else {
+
+                        let msg =
+                            res?.error?.results?.errorMessage ||
+                            res?.message ||
+                            "Error";
+
+                        toastr.error(msg);
+
+                        confirmBtn.prop("disabled", false).text("Save");
+                    }
+                },
+
+                error: function(xhr) {
+
+                    let msg =
+                        xhr.responseJSON?.error?.results?.errorMessage ||
+                        xhr.responseJSON?.message ||
+                        "Something went wrong";
+
+                    toastr.error(msg);
+
+                    confirmBtn.prop("disabled", false).text("Save");
                 }
             });
         });

@@ -793,6 +793,7 @@ class mobileAppController extends Controller
                     })
                     ->join('product_type as pt', 'a.product_type_id', 'pt.id')
                     ->join("product_uom as um", "a.uom_id", "um.id")
+                    ->leftJoin("product_brand as pb", "a.brand_id", "pb.id")
                     ->where("a.sub_category_id", $sub->id)
                     ->where("a.active", 1);
                 if ($sub_category_id) {
@@ -816,6 +817,8 @@ class mobileAppController extends Controller
                     "a.per_uom",
                     "a.base_price",
                     "um.name as uom_name",
+                    "pb.name as brand_name",
+                    "pb.id as brand_id",
                     "pt.name as product_type",
                     "a.product_sub_sub_category",
                     DB::raw("COALESCE(b.base_price, a.base_price) as price"),
@@ -916,6 +919,8 @@ class mobileAppController extends Controller
                         "price" => $product->base_price,
                         "mrp" => $product->mrp,
                         "per_uom" => $product->per_uom,
+                        "brand_name" => $product->brand_name,
+                        "brand_id" => $product->brand_id,
                         "uom_name" => $product->uom_name,
                         "current_stock" => $product->current_stock,
                         "product_type" => $product->product_type,
@@ -2563,6 +2568,140 @@ class mobileAppController extends Controller
             'data' => $products,
         ]);
     }
+
+    // public function searchProducts(Request $request, $query)
+    // {
+    //     $query = trim($query);
+
+    //     if (!$query) {
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'No query provided',
+    //             'data' => []
+    //         ]);
+    //     }
+
+    //     // 🔥 MAIN QUERY
+    //     $products = DB::table("products as a")
+    //         ->join("product_uom as um", "a.uom_id", "um.id")
+    //         ->join("product_category as c", "a.category_id", "c.id")
+    //         ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+    //         ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+    //         ->where("a.active", 1)
+    //         ->where(function ($q) use ($query) {
+    //                         $q->where('a.name', 'like', '%' . $query . '%')
+    //                             ->orWhere('a.tags', 'like', '%' . $query . '%')
+    //                             ->orWhere('a.description', 'like', '%' . $query . '%');
+    //                     })
+    //         ->select(
+    //             "a.id",
+    //             "a.name",
+    //             "a.mrp",
+    //             "a.base_price",
+    //             "a.is_discount",
+    //             "a.discount",
+    //             "um.name as uom_name",
+    //             "c.name as category",
+    //             "d.name as sub_category",
+    //             "e.name as brand_name",
+    //             DB::raw("
+    //             CASE 
+    //                 WHEN a.image IS NOT NULL AND a.image != '' 
+    //                 THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+    //                 ELSE NULL 
+    //             END as image
+    //         "),
+    //             DB::raw("
+    //             (SELECT COALESCE(SUM(cs.stock),0)
+    //              FROM current_stock cs 
+    //              WHERE cs.product_id = a.id
+    //             ) as current_stock
+    //         ")
+    //         )
+    //         ->get(); 
+    //     $productArr = [];
+
+    //     foreach ($products as $product) {
+
+    //         // 🔹 CART
+    //         $cart = DB::table("cart")
+    //             ->where("product_id", $product->id)
+    //             ->where("customer_id", $request->user["customer_id"])
+    //             ->first();
+
+    //         // 🔹 WISHLIST
+    //         $wishlist = DB::table("wishlist")
+    //             ->where("product_id", $product->id)
+    //             ->where("customer_id", $request->user["customer_id"])
+    //             ->first();
+
+    //         // 🔹 TIERS
+    //         $tiers = DB::table("customers_products_list as a")
+    //             ->join("customers_products_tier as b", "a.id", "b.customer_product_id")
+    //             ->select("b.qty", "b.base_price as price")
+    //             ->where("a.customer_id", $request->user["customer_id"])
+    //             ->where("a.product_id", $product->id)
+    //             ->orderBy("b.qty", "asc")
+    //             ->get();
+
+    //         if ($tiers->isEmpty()) {
+    //             $tiers = DB::table("product_price")
+    //                 ->select("qty", "price")
+    //                 ->where("product_id", $product->id)
+    //                 ->orderBy("qty", "asc")
+    //                 ->get();
+    //         }
+
+    //         // 🔥 BASE PRICE
+    //         $basePrice = $product->base_price;
+
+    //         if ($tiers->count() > 0) {
+    //             $basePrice = $tiers[$tiers->count() - 1]->price;
+    //         }
+
+    //         // 🔥 FINAL PRICE
+    //         $final_price = $basePrice;
+
+    //         if ($product->is_discount == 1 && $product->discount > 0) {
+    //             $discountAmount = ($basePrice * $product->discount) / 100;
+    //             $final_price = round($basePrice - $discountAmount, 2);
+    //         }
+
+    //         // 🔥 DISCOUNT %
+    //         $discount = 0;
+    //         if ($product->mrp > 0) {
+    //             $discount = round((($product->mrp - $final_price) / $product->mrp) * 100, 2);
+    //         }
+
+    //         $productArr[] = [
+    //             "id" => $product->id,
+    //             "name" => $product->name,
+    //             "image" => $product->image,
+    //             "brand_name" => $product->brand_name,
+    //             "uom_name" => $product->uom_name,
+    //             "category" => $product->category,
+    //             "sub_category" => $product->sub_category,
+    //             "current_stock" => $product->current_stock,
+
+    //             "mrp" => $product->mrp,
+    //             "base_price" => $basePrice,
+    //             "final_price" => $final_price,
+
+    //             "discount" => $discount,
+
+    //             "tiers" => $tiers,
+
+    //             "cart_status" => $cart ? true : false,
+    //             "wishlist_status" => $wishlist ? true : false,
+    //         ];
+    //     }
+
+    //     return response()->json([
+    //         'error' => false,
+    //         'message' => 'Products retrieved successfully.',
+    //         'data' => $productArr,
+    //     ]);
+    // }
 
     public function AddWalletAmount(Request $request)
     {

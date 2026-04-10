@@ -382,6 +382,8 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('supplier/DispatchChallan', [OutWardController::class, 'DispatchChallan'])->name('supplier/DispatchChallan');
 
     Route::post('/supplier/generateEInvoice', [EInvoiceController::class, 'generateEInvoice'])->name('/supplier/generateEInvoice');
+    Route::post('/supplier/generateEwayBill', [EInvoiceController::class, 'generateEwayBill'])
+    ->name('/supplier/generateEwayBill');
 
     //Dispatch  Plan
     Route::get('supplier/mode-of-transport', [DispatchController::class, 'ModeOfTransport'])->name('supplier/mode-of-transport');
