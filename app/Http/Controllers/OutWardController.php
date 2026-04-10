@@ -310,7 +310,7 @@ class OutWardController extends Controller
             ->join("products as b", "a.product_id", "=", "b.id")
             ->join("stock_outward_mst as c", "a.mst_id", "=", "c.id")
             ->join("orders as d", "c.order_id", "=", "d.id")
-            ->join("product_brand as e", "b.brand_id", "=", "e.id")
+            ->leftJoin("product_brand as e", "b.brand_id", "=", "e.id")
             ->where("a.mst_id", $id)
             ->get();
         $gst = DB::table("product_gst")->get();
@@ -355,6 +355,8 @@ class OutWardController extends Controller
                 "a.invoice_id",
                 "a.status",
                 "a.is_invoice",
+                "a.is_e_invoice",
+                "a.EinvoicePdf",
                 "a.dispatch_status",
                 "a.created_at",
                 "c.name as customer_name",
@@ -375,7 +377,9 @@ class OutWardController extends Controller
                 "a.outward_id",
                 "a.invoice_id",
                 "a.status",
+                "a.EinvoicePdf",
                 "a.is_invoice",
+                "a.is_e_invoice",
                 "a.dispatch_status",
                 "a.created_at",
                 "c.name"

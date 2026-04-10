@@ -76,7 +76,7 @@
                     <thead>
                         <th style="border:  solid 1px; padding:2px">S.No</th>
                         <th style="border:  solid 1px; padding:2px">Description of goods</th>
-                        <th style="border:  solid 1px; padding:2px">Article No</th>
+                        <th style="border:  solid 1px; padding:2px">HSN Code</th>
                         <th style="border:  solid 1px; padding:2px">Qty</th>
                         <th style="border:  solid 1px; padding:2px">Rate</th>
                         <th style="border:  solid 1px; padding:2px">Taxable</th>
@@ -116,7 +116,7 @@
                             <tr>
                                 <td style="border:  solid 1px; padding:2px">{{ $sno++ }}</td>
                                 <td style="border:  solid 1px; padding:2px">{{ $item->product }}</td>
-                                <td style="border:  solid 1px; padding:2px">{{ $item->article_no }}</td>
+                                <td style="border:  solid 1px; padding:2px">{{ $item->hsn_code }}</td>
                                 <td style="border:  solid 1px; padding:2px">{{ $item->qty }}</td>
                                 <td style="border:  solid 1px; padding:2px">{{ $item->price }}</td>
                                 <td style="border:  solid 1px; padding:2px">{{ $item->price * $item->qty }}</td>

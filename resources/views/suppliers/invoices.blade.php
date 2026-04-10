@@ -49,16 +49,22 @@
                                 <a class="btn btn-info btn-sm" title="View Invoice"
                                     href="/supplier/invoice-view/{{ $item->id }}"><i class="fa fa-eye"
                                         aria-hidden="true"></i></a>
-                                @if ($item->dispatch_status == 'pending' && $item->status != 'cancel' && $item->is_invoice == 1)
+                                @if ($item->is_e_invoice == 0)
                                     <button class="btn btn-success btn-sm sendEInvoice" value="{{ $item->id }}"
                                         data-bs-toggle="tooltip" data-bs-placement="top"
                                         title="Convert Invoice to E-Invoice">
                                         <i class="fa-solid fa-file"></i>
                                     </button>
+                                @endif
+                                @if ($item->dispatch_status == 'pending' && $item->status != 'cancel' && $item->is_invoice == 1)
                                     <button class="btn btn-warning btn-sm dispatch" value="{{ $item->id }}"
                                         data-bs-toggle="tooltip" data-bs-placement="top" title="Send to dispatch">
                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
                                     </button>
+                                @endif
+                                @if ($item->is_e_invoice == 1)
+                                    <a class="btn btn-info btn-sm" title="View E-Invoice" href="{{ $item->EinvoicePdf }}"
+                                        target="_blank">E-Invoice</a>
                                 @endif
                             </td>
                         </tr>
@@ -128,15 +134,19 @@
 
     <script>
         let selectedBtn = null;
+
         $(document).on("click", ".sendEInvoice", function() {
             $("#invoice_id").val($(this).val());
             selectedBtn = $(this);
             $("#eInvocieModal").modal("show");
         });
+
         $(document).on("click", ".confirmEInvoice", function() {
+
             let invoice_id = $("#invoice_id").val();
             let btn = selectedBtn;
             let confirmBtn = $(this);
+
             $.ajax({
                 url: "{{ route('/supplier/generateEInvoice') }}",
                 type: "POST",
@@ -146,48 +156,42 @@
                 headers: {
                     "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
                 },
+
                 beforeSend: function() {
                     confirmBtn.prop("disabled", true).text("Processing...");
                 },
+
                 success: function(res) {
                     if (res.status === true) {
-
-                        $("#alertMsg").html(`
-                    <div class="alert alert-success">
-                        <strong>${res.message}</strong>
-                    </div>
-                    `);
-                        if (res.pdf_url) {
-                            btn.replaceWith(`
-                        <a href="${res.pdf_url}" target="_blank" class="btn btn-success btn-sm">
-                            <i class="fa-solid fa-download"></i> Download
-                        </a>
-                    `);
-                        }
-                    } else {
-                        $("#alertMsg").html(`
-                    <div class="alert alert-danger">
-                        <strong>${res.message}</strong>
-                    </div>
-                    `);
+                        toastr.success(res.message || "Success", "success");
+                        $("#eInvocieModal").modal("hide");
                         confirmBtn.prop("disabled", false).text("Save");
-                        btn.prop("disabled", false).html('<i class="fa-solid fa-file"></i>');
+                    } else {
+
+                        let msg =
+                            res?.error?.results?.errorMessage ||
+                            res?.message ||
+                            "Something went wrong";
+
+                        toastr.error(msg, "error");
+
+                        confirmBtn.prop("disabled", false).text("Save");
+                        if (btn) btn.prop("disabled", false);
                     }
                 },
+
                 error: function(xhr) {
-                    let msg = xhr.responseJSON?.message || "Something went wrong";
-                    $("#alertMsg").html(`
-                    <div class="alert alert-danger">
-                        <strong>${msg}</strong>
-                    </div>
-                `);
+
+                    let msg =
+                        res?.error?.results?.errorMessage ||
+                        res?.message ||
+                        "Something went wrong";
+
+                    toastr.error(msg, "error");
                     confirmBtn.prop("disabled", false).text("Save");
-                    btn.prop("disabled", false).html('<i class="fa-solid fa-file"></i>');
+                    if (btn) btn.prop("disabled", false);
                 }
             });
-            if (res.status === true) {
-                $("#eInvocieModal").modal("hide");
-            }
         });
     </script>
 @endsection

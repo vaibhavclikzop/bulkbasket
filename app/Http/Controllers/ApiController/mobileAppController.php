@@ -137,7 +137,7 @@ class mobileAppController extends Controller
 
             if ($customer_otp) {
                 $user = DB::table("customer_users as a")
-                    ->select("a.*", "b.active", "b.supplier_id")
+                    ->select("a.*", "b.active", "b.id as customer_id", "b.supplier_id")
                     ->join("customers as b", "a.customer_id", "b.id")
                     ->where("a.number", $request->number)
                     ->first();
@@ -1123,14 +1123,14 @@ class mobileAppController extends Controller
 
                 $gstAmount = ($amount * $gst) / 100;
 
-                $totalGST += $gstAmount;  
+                $totalGST += $gstAmount;
 
                 $totalAmount += $amount + $gstAmount;
             }
 
             $orderSummary = [
                 "taxable" => round($taxable, 2),
-                "gst" => round($totalGST, 2), 
+                "gst" => round($totalGST, 2),
                 "totalAmount" => round($totalAmount, 2)
             ];
 
@@ -1729,10 +1729,10 @@ class mobileAppController extends Controller
                 ELSE NULL 
             END as image")
             )
-            ->join("product_uom as b", "a.uom_id", "b.id")
-            ->join("product_category as c", "a.category_id", "c.id")
-            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-            ->join("product_type as f", "a.product_type_id", "f.id")
+            ->leftJoin("product_uom as b", "a.uom_id", "b.id")
+            ->leftJoin("product_category as c", "a.category_id", "c.id")
+            ->leftJoin("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->leftJoin("product_type as f", "a.product_type_id", "f.id")
             ->where("a.sub_category_id", $product->sub_category_id)
             ->where("a.id", "!=", $product->id)
             ->where("a.active", 1)
@@ -1783,6 +1783,11 @@ class mobileAppController extends Controller
                 $item->wishlist_status = $wishlistItem ? true : false;
                 return $item;
             });
+        $suggestPro = [];
+
+        foreach ($related_products as $item) {
+            $suggestPro[] = $item->id;
+        }
         $brand_products = DB::table("products as a")
             ->select(
                 "a.*",
@@ -1799,11 +1804,13 @@ class mobileAppController extends Controller
                 ELSE NULL 
             END as image")
             )
-            ->join("product_uom as b", "a.uom_id", "b.id")
-            ->join("product_category as c", "a.category_id", "c.id")
-            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-            ->join("product_type as f", "a.product_type_id", "f.id")
+            ->leftJoin("product_uom as b", "a.uom_id", "b.id")
+            ->leftJoin("product_category as c", "a.category_id", "c.id")
+            ->leftJoin("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->leftJoin("product_type as f", "a.product_type_id", "f.id")
             ->where("a.brand_id", $product->brand_id)
+            ->where("a.id", "!=", $product->id)
+            ->whereNotIn("a.id", $suggestPro)
             ->where("a.active", 1)
             ->get()
             ->map(function ($item) use ($customerId) {
@@ -2555,5 +2562,108 @@ class mobileAppController extends Controller
             'message' => 'Products retrieved successfully.',
             'data' => $products,
         ]);
+    }
+
+    public function AddWalletAmount(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_id' => 'required',
+            'amount' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        try {
+            $customer = DB::table("customers")
+                ->where("id", $request->customer_id)
+                ->first();
+
+            if (!$customer) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Customer not found'
+                ], 404);
+            }
+            if ($customer->active != 1) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your account currently not active'
+                ], 403);
+            }
+            $invoice_no = 'VOU-' . $request->customer_id . date('YmdHis');
+            DB::table('wallet_ledger')->insert([
+                'customer_id' => $request->customer_id,
+                'amount' => $request->amount,
+                'pay_mode' => "Online",
+                'pay_date'  => now(),
+                'supplier_id' => 1,
+                'invoice_no' => $invoice_no,
+                'remarks' => "Add Online From Mobile",
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            DB::table("customers")
+                ->where("id", $request->customer_id)
+                ->decrement("used_wallet", $request->amount);
+            $ledgerAmount = $request->amount;
+
+            if ($ledgerAmount > 0) {
+
+                $orders = DB::table('orders')
+                    ->where('customer_id', $request->customer_id)
+                    ->where('intrest_amount', '>', 0)
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                foreach ($orders as $order) {
+
+                    if ($ledgerAmount <= 0) break;
+
+                    $currentInterest = (float) $order->intrest_amount;
+
+                    if ($ledgerAmount >= $currentInterest) {
+
+                        DB::table('orders')->where('id', $order->id)->update([
+                            'intrest_amount' => 0,
+                            'updated_at' => now()
+                        ]);
+
+                        $ledgerAmount -= $currentInterest;
+                    } else {
+
+                        DB::table('orders')->where('id', $order->id)->update([
+                            'intrest_amount' => $currentInterest - $ledgerAmount,
+                            'updated_at' => now()
+                        ]);
+
+                        $ledgerAmount = 0;
+                    }
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Wallet ledger added successfully',
+                'data' => [
+                    'invoice_no' => $invoice_no,
+                    'amount' => $request->amount
+                ]
+            ], 200);
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Something went wrong',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

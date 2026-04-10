@@ -132,6 +132,7 @@ Route::middleware([customerMobileMiddleware::class])->group(function () {
     Route::get('mobile/get-order-details/{id}', [mobileAppController::class, 'getOrderDetails'])->name('mobile/get-order-details');
     Route::get('mobile/get-wallet-ledger', [mobileAppController::class, 'getWalletLedger'])->name('mobile/get-wallet-ledger');
     Route::get('mobile/search-products/{query}', [mobileAppController::class, 'searchProducts'])->name('mobile/search-products');
+    Route::post('mobile/add-walllet-amount', [mobileAppController::class, 'AddWalletAmount'])->name('mobile/add-walllet-amount');
 });
 
 

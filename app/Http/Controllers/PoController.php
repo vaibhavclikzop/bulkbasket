@@ -882,7 +882,7 @@ class PoController extends Controller
             ->leftJoin("suppliers as d", "a.supplier_id", "d.id")
             ->where("a.id", $id)
             ->where("a.supplier_id", $request->user["supplier_id"])
-            ->first(); 
+            ->first();
         $stock_inward_det = DB::table("stock_inward_det as a")
             ->select(
                 "a.*",
@@ -1005,7 +1005,7 @@ class PoController extends Controller
 
             ->where("a.mst_id", $id)
             ->get();
-        
+
         return view("suppliers.inward-report-slip", compact("stock_inward_mst", "stock_inward_det"));
     }
 
@@ -1146,6 +1146,7 @@ class PoController extends Controller
 
     public function inwardProductWise(Request $request)
     {
+        $product_id = request("product_id");
         $vendor_id = request("vendor_id");
         $fromDt = request("fromDt");
         $toDt = request("toDt");
@@ -1159,7 +1160,7 @@ class PoController extends Controller
                 "a.description",
                 "a.created_at",
 
-                "b.name as vendor",
+                "b.company as vendor",
                 "c.po_id as po_name",
                 "e.name as user",
 
@@ -1182,6 +1183,9 @@ class PoController extends Controller
 
             ->leftJoin("warehouse_location as l", "f.location_id", "=", "l.id")
             ->leftJoin("warehouse as h", "l.warehouse_id", "=", "h.id");
+        if ($product_id) {
+            $filter->where("f.product_id", $product_id);
+        }
         if ($vendor_id) {
             $filter->where("a.vendor_id", $vendor_id);
         }
@@ -1198,8 +1202,9 @@ class PoController extends Controller
             ->get();
 
         $vendor = DB::table("vendor")->where("supplier_id", $request->user["supplier_id"])->get();
+        $product = DB::table("products")->where("supplier_id", $request->user["supplier_id"])->get();
 
-        return view("suppliers.inward-product-wise", compact("data", "vendor"));
+        return view("suppliers.inward-product-wise", compact("data", "vendor","product"));
     }
 
     public function CurrentStock(Request $request)

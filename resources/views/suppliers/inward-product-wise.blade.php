@@ -28,8 +28,19 @@
                 <div>
                     <form action="" class="d-flex">
                         <div>
+                            <label for="">Product</label>
+                            <select name="product_id" id="product_id">
+                                <option value="">Select</option>
+                                @foreach ($product as $item)
+                                    <option value="{{ $item->id }}"
+                                        {{ request('product_id') == $item->id ? 'selected' : '' }}>{{ $item->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
                             <label for="">Vendor</label>
-                            <select name="vendor_id" id="" class="form-control">
+                            <select name="vendor_id" id="vendor_id">
                                 <option value="">Select</option>
                                 @foreach ($vendor as $item)
                                     <option value="{{ $item->id }}"
@@ -61,7 +72,9 @@
                         <tr>
                             <th>S.No</th>
                             <th>PO</th>
-
+                            <th>Invoice Date</th>
+                            <th>Invoice</th>
+                            <th>Article No</th>
                             <th>Product Name</th>
                             <th>Qty</th>
                             <th>Price</th>
@@ -69,10 +82,9 @@
                             <th>Vendor</th>
                             <th>Warehouse</th>
                             <th>Location</th>
-                            <th>Invoice</th>
-                            <th>Invoice Date</th>
+
                             <th>R.M Date</th>
-                            <th>Article No</th>
+
                             <th>Description</th>
                             {{-- <th>Created at</th> --}}
                         </tr>
@@ -83,7 +95,9 @@
                             <tr>
                                 <td>{{ $sno++ }}</td>
                                 <td>{{ $row->po_name }}</td>
-
+                                <td>{{ $row->invoice_date }}</td>
+                                <td>{{ $row->invoice_no }}</td>
+                                <td>{{ $row->article_no }}</td>
                                 <td>{{ $row->product_name }}</td>
                                 <td>{{ $row->qty }}</td>
                                 <td>{{ $row->price }}</td>
@@ -91,10 +105,9 @@
                                 <td>{{ $row->vendor }}</td>
                                 <td>{{ $row->warehouse }}</td>
                                 <td>{{ $row->location }}</td>
-                                <td>{{ $row->invoice_no }}</td>
-                                <td>{{ $row->invoice_date }}</td>
+
                                 <td>{{ $row->received_material_date }}</td>
-                                <td>{{ $row->article_no }}</td>
+
                                 <td>{{ $row->description }}</td>
                                 {{-- <td>{{ \Carbon\Carbon::parse($row->created_at)->format('d-m-Y') }}</td> --}}
                             </tr>
@@ -106,8 +119,6 @@
     </div>
     <script>
         $(document).ready(function() {
-
-
             $("#myDataTable").DataTable({
                 "responsive": false,
                 "lengthChange": true,
@@ -120,6 +131,12 @@
                     [100, 250, 500, "All"]
                 ],
             }).buttons().container().appendTo('.col-md-6:eq()');
+            $("#product_id").select2({
+                width: "100%"
+            });
+            $("#vendor_id").select2({
+                width: "100%"
+            });
         })
     </script>
 @endsection

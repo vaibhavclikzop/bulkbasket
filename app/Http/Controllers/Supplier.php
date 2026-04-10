@@ -101,7 +101,7 @@ class Supplier extends Controller
     public function Customers(Request $request, $id)
     {
 
-        $data = DB::table('customers')->where("supplier_id", $request->user['supplier_id'])->orderBy("id", "desc")->where("active", $id)->get();
+        $data = DB::table('customers')->where("supplier_id", 1)->orderBy("id", "desc")->where("active", $id)->get();
         return view("suppliers.customers", compact("data"));
     }
 
