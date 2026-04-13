@@ -65,9 +65,9 @@
                                 @if ($item->is_e_invoice == 1)
                                     <a class="btn btn-info btn-sm" title="View E-Invoice" href="{{ $item->EinvoicePdf }}"
                                         target="_blank">E-Invoice</a>
-                                    <button class="btn btn-info btn-sm sendEBilling" value="{{ $item->invoice_id }}"
+                                    <button class="btn btn-info btn-sm sendEBilling" value="{{ $item->id }}"
                                         data-bs-toggle="tooltip" data-bs-placement="top"
-                                        title="Convert Invoice to E-Billing">
+                                        title="Convert E-Invoice to E-Billing">
                                         <i class="fa-solid fa-file"></i>
                                     </button>
                                 @endif

@@ -19,8 +19,14 @@ class EInvoiceController extends Controller
     public function generateEwayBill(Request $request)
     {
         try {
-            $invoice = DB::table('stock_outward_mst')
-                ->where('invoice_id', $request->invoice_id)
+            $invoiceId = $request->invoice_id;
+            $invoice = DB::table('stock_outward_mst as a')
+                ->select(
+                    "a.*",
+                    "b.gst"
+                )
+                ->join("customers as b", "a.customer_id", "b.id")
+                ->where('a.id', $invoiceId)
                 ->first();
             if (!$invoice || !$invoice->Irn) {
                 return response()->json([
@@ -43,50 +49,127 @@ class EInvoiceController extends Controller
                 ]);
             }
             $token = $authData['token'];
-            $products = DB::table('stock_inward_det as a')
+            $products = DB::table('stock_outward_det as a')
                 ->select(
                     'p.name as product_name',
                     'p.hsn_code',
                     'a.qty',
+                    'pu.name as p_unit',
                     'a.price as unit_price',
                     'p.gst'
                 )
                 ->join('products as p', 'a.product_id', '=', 'p.id')
-                ->where('a.mst_id', $request->invoice_id)
-                ->get(); 
+                ->join('product_uom as pu', 'p.uom_id', '=', 'pu.id')
+                ->where('a.mst_id', $invoice->id)
+                ->get();
             $itemList = [];
+            $gstin = $invoice->gst ?? '';
+            $stateCode = substr($gstin, 0, 2);
             foreach ($products as $product) {
+                $qty   = (float) $product->qty;
+                $price = (float) $product->unit_price;
+                $gst   = (float) ($product->gst ?? 0);
+                $hsn = preg_replace('/[^0-9]/', '', $product->hsn_code);
+                $hsn = substr($hsn, 0, 8);
+                $assessableValue = round($price * $qty, 2);
+                $igst = 0;
+                $cgst = 0;
+                $sgst = 0;
 
-                $hsn = substr($product->hsn_code, 0, 8);
+                if ($stateCode == "03") {
+                    $cgst = round(($assessableValue * $gst) / 200, 2);
+                    $sgst = round(($assessableValue * $gst) / 200, 2);
+                } else {
+                    $igst = round(($assessableValue * $gst) / 100, 2);
+                }
+                $itemList = [];
 
-                $itemList[] = [
-                    "product_name" => $product->product_name ?? 'Product',
-                    "hsn_code" => $hsn,
-                    "quantity" => (float) ($product->qty ?? 1),
-                    "unit_price" => (float) ($product->unit_price ?? 0),
-                    "taxable_amount" => (float) ($product->qty * $product->unit_price),
-                    "gst_rate" => (float) ($product->gst ?? 0),
-                ];
+                foreach ($products as $product) {
+
+                    $qty   = (float) $product->qty;
+                    $product_unit   = $product->p_unit;
+                    $price = (float) $product->unit_price;
+                    $gst   = (float) ($product->gst ?? 0);
+
+                    $hsn = preg_replace('/[^0-9]/', '', $product->hsn_code);
+                    $hsn = substr($hsn, 0, 8);
+
+                    if (!$hsn || strlen($hsn) < 4 || $qty <= 0 || $price <= 0) {
+                        continue;
+                    }
+
+                    $productName = trim($product->product_name);
+                    if (!$productName) {
+                        continue;
+                    }
+
+                    $taxable = round($qty * $price, 2);
+
+                    $cgst = 0;
+                    $sgst = 0;
+                    $igst = 0;
+
+                    if ($stateCode == "03") {
+                        $cgst = round(($taxable * $gst) / 200, 2);
+                        $sgst = round(($taxable * $gst) / 200, 2);
+                    } else {
+                        $igst = round(($taxable * $gst) / 100, 2);
+                    }
+
+                    $itemList[] = [
+                        "productName"   => $productName,
+                        "hsnCode"       => $hsn,
+                        "quantity"      => $qty,
+                        "qtyUnit"       => $product_unit,
+                        "taxableAmount" => $taxable,
+
+                        "cgstRate"      => $stateCode == "03" ? (int)($gst / 2) : 0,
+                        "sgstRate"      => $stateCode == "03" ? (int)($gst / 2) : 0,
+                        "igstRate"      => $stateCode != "03" ? (int)$gst : 0,
+
+                        "cgstAmount"    => $cgst,
+                        "sgstAmount"    => $sgst,
+                        "igstAmount"    => $igst,
+                        "cessRate"      => 0,
+                        "cessAmount"    => 0
+                    ];
+                }
+            }
+            if (empty($itemList)) {
+                dd("ItemList empty", $products);
             }
             $payload = [
                 "Irn" => $invoice->Irn,
+
+                "supply_type" => "outward",
+                "document_type" => "tax invoice",
+                "sub_supply_type" => "Others",
+                "document_number" => $invoice->invoice_id,
+                "document_date" => now()->format('d/m/Y'), 
+                "gstin_of_consignor" => "05AAAAZ2166M1Z7",
+                "pincode_of_consignor" => "248001",
+                "state_of_consignor" => "05",    
+
+                "gstin_of_consignee" => $invoice->gst,
+                "pincode_of_consignee" => "110001",
+                "state_of_supply" => "02",      
+
                 "itemList" => $itemList,
 
                 "transporter_id" => "05AAABC0181E1ZE",
                 "transporter_name" => "ABC Logistics",
+                "transportation_mode" => "road",  
+                "transportation_distance" => "100",
 
-                "transport_mode" => "1",
-                "transport_doc_no" => "DOC" . rand(1000, 9999),
-                "transport_doc_date" => now()->format('d/m/Y'),
-
-                "vehicle_no" => "UK07AB1234",
-                "vehicle_type" => "R"
+                "vehicle_number" => "UK07AB1234",  
+                "vehicle_type" => "Regular"       
             ];
+            // dd(json_encode($payload, JSON_PRETTY_PRINT));
             $response = Http::withHeaders([
                 'Authorization' => 'JWT ' . $token,
                 'Content-Type' => 'application/json'
             ])->post(
-                'https://sandb-api.mastersindia.co/api/v1/generate-eway-bill/',
+                'https://clientbasic.mastersindia.co/ewayBillsGenerate',
                 $payload
             );
             $data = $response->json();

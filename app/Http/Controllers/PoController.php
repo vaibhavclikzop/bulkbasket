@@ -486,12 +486,12 @@ class PoController extends Controller
             )
             ->leftJoin("products as b", "a.product_id", "=", "b.id")
             ->leftJoin("product_brand as c", "b.brand_id", "=", "c.id")
-            ->join("warehouse_product as wp", "wp.product_id", "=", "b.id")
-            ->join("warehouse_location as wl", function ($join) {
+            ->leftJoin("warehouse_product as wp", "wp.product_id", "=", "b.id")
+            ->leftJoin("warehouse_location as wl", function ($join) {
                 $join->on("wl.id", "=", "wp.warehouse_location_id")
                     ->on("wl.warehouse_id", "=", "wp.warehouse_id");
             })
-            ->join("warehouse as w", "w.id", "=", "wl.warehouse_id")
+            ->leftJoin("warehouse as w", "w.id", "=", "wl.warehouse_id")
             ->where("a.mst_id", $request->id)
             ->get();
         return response()->json([
