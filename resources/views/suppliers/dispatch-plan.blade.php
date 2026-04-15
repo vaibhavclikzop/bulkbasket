@@ -19,11 +19,14 @@
                 <thead>
                     <tr>
                         <th>S.No</th>
-                        <th>Invoice No </th>
+                        {{-- <th>Invoice No </th> --}}
                         <th>PT ID</th>
+                         <th>Order ID</th>
                         <th>Customer</th>
-                        <th>Order ID</th>
                         <th>Invoice Amt.</th>
+                        <th>Driver Name</th>
+                        <th>Driver No</th>
+                        <th>Vehicle No</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -35,11 +38,14 @@
                     @foreach ($outward as $item)
                         <tr>
                             <td>{{ $sno++ }}</td>
-                            <td>{{ $item->invoice_id }}</td>
+                            {{-- <td>{{ $item->invoice_id }}</td> --}}
                             <td>{{ $item->outward_id }}</td>
+                            <td>{{ $item->order_id }}</td>
                             <td>{{ $item->customer_name }}</td>
-                            <td>#{{ $item->order_id }}</td>
                             <td>{{ round($item->total_amount) }}.00</td>
+                             <td>{{ $item->driver_name ?? "N/A"}}</td>
+                             <td>{{ $item->driver_no ?? "N/A"}}</td>
+                             <td>{{ $item->vehicle_number ?? "N/A"}}</td>
                             <td>{{ ucfirst($item->status) }}</td>
                             <td>
                                 <a class="btn btn-info btn-sm" title="View Invoice"

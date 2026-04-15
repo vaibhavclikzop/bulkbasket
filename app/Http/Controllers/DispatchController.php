@@ -75,11 +75,15 @@ class DispatchController extends Controller
                 "a.invoice_id",
                 "a.status",
                 "a.is_invoice",
+                "oe.order_id",
                 "a.is_e_invoice",
                 "a.EinvoicePdf",
                 "a.dispatch_status",
                 "a.is_e_billing",
                 "a.eway_bill_url",
+                "a.driver_name",
+                "a.driver_no",
+                "a.vehicle_number",
                 "a.created_at",
                 "c.name as customer_name",
                 DB::raw("SUM((d.qty * d.price) 
@@ -88,6 +92,7 @@ class DispatchController extends Controller
         ) as total_amount")
             )
             ->leftJoin("orders as b", "a.order_id", "=", "b.id")
+            ->leftJoin("order_estimate as oe", "b.estimate_id", "=", "oe.id")
             ->leftJoin("customer_users as c", "b.customer_id", "=", "c.id")
             ->leftJoin("stock_outward_det as d", "a.id", "=", "d.mst_id")
             ->leftJoin("products as p", "d.product_id", "=", "p.id")
@@ -105,7 +110,11 @@ class DispatchController extends Controller
                 "a.is_e_invoice",
                 "a.dispatch_status",
                 "a.is_e_billing",
+                "oe.order_id",
                 "a.eway_bill_url",
+                "a.driver_name",
+                "a.driver_no",
+                "a.vehicle_number",
                 "a.created_at",
                 "c.name"
             );
