@@ -32,13 +32,16 @@
                     </div>
                     <div class="col-md-3">
                         <label>State</label>
-                        <select name="state" value="{{ $data->state }}" class="form-control">
+                        <select name="state" id="estate" value="{{ $data->state }}" class="form-control">
                             <option value="">Select</option>
+                            @foreach ($state as $item)
+                                <option value="{{$item->state}}">{{$item->state}}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label>District</label>
-                        <select name="district" value="{{ $data->district }}" class="form-control">
+                        <select name="district" id="edistrict" value="{{ $data->district }}" class="form-control">
                             <option value="">Select</option>
                         </select>
                     </div>
@@ -55,12 +58,20 @@
                         <input type="" name="password" value="{{ $data->password }}" class="form-control" required>
                     </div>
                     <div class="col-md-3 mt-2">
-                        <label>Challan Prefix</label>
+                        <label>Order Prefix <span class="text-danger">(Read Only)</span></label>
                         <input type="" readonly name="order_series" value="{{ $data->order_series }}" class="form-control" required>
                     </div>
                     <div class="col-md-3 mt-2">
-                        <label>Challan Series</label>
+                        <label>Order Series<span class="text-danger">(Read Only)</span></label>
                         <input type="number" readonly name="order_id" value="{{ $data->order_id}}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3 mt-2">
+                        <label>Invoice Prefix<span class="text-danger">(Read Only)</span></label>
+                        <input type="" readonly name="inv_series" value="{{ $data->inv_series }}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3 mt-2">
+                        <label>Invoice Series<span class="text-danger">(Read Only)</span></label>
+                        <input type="number" readonly name="inv_id" value="{{ $data->inv_id}}" class="form-control" required>
                     </div>
                     <div class="col-md-12 mt-4 text-center">
                         <button class="btn btn-primary" type="submit">Save</button>
@@ -70,4 +81,39 @@
 
         </div>
     </div>
+    <script>
+        $("#estate").on("change", function() {
+   
+         $.ajax({
+             url: "/GetCity",
+             type: "POST",
+             data: {
+                 state: $(this).val(),
+             },
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+             },
+             beforeSend: function() {
+                 $("#loader").show();
+             },
+             success: function(result) {
+                 var html = "";
+                 html += '<option value="">----Select city----</option>';
+                 result.forEach(element => {
+
+                     html += '<option value="' + element.city + '" >' + element.city +
+                         '</option>';
+                 });
+                 $("#edistrict").html(html)
+             },
+             complete: function() {
+                 $("#loader").hide();
+             },
+             error: function(result) {
+                 toastr.error(result.responseJSON.message);
+             }
+         });
+
+     });
+    </script>
 @endsection

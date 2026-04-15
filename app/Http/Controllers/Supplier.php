@@ -188,7 +188,7 @@ class Supplier extends Controller
 
     public function Profile(Request $request)
     {
-        $data = DB::table("supplier_users as a")->select("a.*", "b.order_id", "b.order_series")->join('suppliers as b', "a.supplier_id", "b.id")->where("a.id", $request->user['id'])->first();
+        $data = DB::table("supplier_users as a")->select("a.*", "b.order_id", "b.order_series", "b.inv_id", "b.inv_series")->join('suppliers as b', "a.supplier_id", "b.id")->where("a.id", $request->user['id'])->first();
         return view("suppliers.profile", compact("data"));
     }
 
@@ -215,24 +215,18 @@ class Supplier extends Controller
         }
 
         try {
-
-
             DB::table('supplier_users')->where("id", $request->user['id'])->update(array(
-
                 "name" => $request->name,
                 "number" => $request->number,
                 "email" => $request->email,
-
                 "address" => $request->address,
                 "state" => $request->state,
                 "city" => $request->ity,
                 "district" => $request->district,
                 "pincode" => $request->pincode,
                 "password" => $request->password,
-
-
-
             ));
+
         } catch (Exception $e) {
 
             return redirect()->back()->with('error', $e->getMessage());
@@ -581,16 +575,16 @@ class Supplier extends Controller
                 'wallet_assigned_at' => now(),
                 'updated_at' => now(),
             ]);
-            $invoice_no = 'VOU-' . $request->id . date('YmdHis');
-            DB::table('wallet_ledger')->insert(array(
-                'customer_id' => $request->id,
-                'amount' => $request->wallet,
-                'pay_mode' => 'Credit_Limit',
-                'pay_date' => now(),
-                'supplier_id' => $request->user['supplier_id'],
-                'invoice_no' => $invoice_no,
-                'remarks' => "Due: {$request->due_date} days | Grace: {$grace_days} days | 18% interest after grace period",
-            ));
+            // $invoice_no = 'VOU-' . $request->id . date('YmdHis');
+            // DB::table('wallet_ledger')->insert(array(
+            //     'customer_id' => $request->id,
+            //     'amount' => $request->wallet,
+            //     'pay_mode' => 'Credit_Limit',
+            //     'pay_date' => now(),
+            //     'supplier_id' => $request->user['supplier_id'],
+            //     'invoice_no' => $invoice_no,
+            //     'remarks' => "Due: {$request->due_date} days | Grace: {$grace_days} days | 18% interest after grace period",
+            // ));
         } catch (Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }

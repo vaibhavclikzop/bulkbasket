@@ -489,7 +489,7 @@
 
                                             </th>
                                         </tr>
-                                    </tbody>
+                                    </tbody> 
                                 </table>
                             </div>
                         </div>
@@ -503,9 +503,14 @@
                                     <input type="hidden" name="id" value="{{ $data->id }}">
                                     <div class="row">
                                         <div class="col-md-5">
+                                            @php
+                                                $wallet = $data->wallet ?? 0;
+                                                $used = $data->used_wallet ?? 0;
+                                                $total_wallet = $wallet - $used;
+                                            @endphp
                                             <label for="">Credit Limit</label>
                                             <input type="number" step="0.01" name="wallet" class="form-control"
-                                                value="{{ $data->wallet }}">
+                                                value="{{ $total_wallet }}">
                                         </div>
                                         <div class="col-md-4">
                                             <label for="">Due Date</label>

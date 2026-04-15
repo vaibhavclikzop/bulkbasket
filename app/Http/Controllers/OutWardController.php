@@ -61,9 +61,9 @@ class OutWardController extends Controller
     public function GetCustomerOrder(Request $request)
     {
         $order_mst =  DB::table("orders as a")
-        ->select('a.*','oe.order_id as e_order_id')
-        ->join("order_estimate as oe", "a.estimate_id", "=", "oe.id")
-        ->where("a.customer_id", $request->id)
+            ->select('a.*', 'oe.order_id as e_order_id')
+            ->join("order_estimate as oe", "a.estimate_id", "=", "oe.id")
+            ->where("a.customer_id", $request->id)
             ->whereNot("a.order_status", "complete")
             ->get();
         return $order_mst;
@@ -286,7 +286,7 @@ class OutWardController extends Controller
             ->join("products as b", "a.product_id", "=", "b.id")
             ->join("stock_outward_mst as c", "a.mst_id", "=", "c.id")
             ->join("orders as d", "c.order_id", "=", "d.id")
-            ->join("product_brand as e", "b.brand_id", "=", "e.id")
+            ->leftJoin("product_brand as e", "b.brand_id", "=", "e.id")
             ->where("a.mst_id", $id)
             ->get();
         $nextProduct = DB::table("stock_outward_mst")
@@ -336,12 +336,20 @@ class OutWardController extends Controller
                 $count++;
             }
         }
+        $order_data = DB::table("suppliers")->where('id', 1)->first();
+        $current_order_id = $order_data->inv_id;
+        $next_order_id = $current_order_id + 1;
+        $inv_id = $order_data->inv_series . $next_order_id;
         try {
-            $inv = 'INV-' . date('YmdHis') . '-' . rand(100, 999);
             DB::table('stock_outward_mst')->where("id", $request->id)->update(array(
                 "is_invoice" => 1,
-                "invoice_id" => $inv,
+                "invoice_id" => $inv_id,
             ));
+             DB::table("suppliers")
+                ->where('id', 1)
+                ->update([
+                    'inv_id' => $next_order_id
+                ]);
         } catch (\Throwable $th) {
             return redirect()->back()->with('error', $th->getMessage());
         }
@@ -399,7 +407,7 @@ class OutWardController extends Controller
         $outward = $out
             ->orderBy("a.id", "desc")
             ->get();
-            // dd($outward);
+        // dd($outward);
         return view("suppliers.invoices", compact("outward"));
     }
 

@@ -85,43 +85,46 @@
                             <input type="hidden" name="id" id="supplier_id">
                             <div class="col-md-4">
                                 <label for="">Name</label>
-                                <input type="text" name="name" class="form-control" required>
+                                <input type="text" name="company_name" class="form-control" required>
                             </div>
                             <div class="col-md-4">
                                 <label for="">Number</label>
-                                <input type="number" name="number" class="form-control" required>
+                                <input type="number" name="company_number" class="form-control" required>
                             </div>
                             <div class="col-md-4">
                                 <label for="">Email</label>
-                                <input type="email" name="email" class="form-control">
+                                <input type="email" name="company_email" class="form-control">
                             </div>
                             <div class="col-md-4">
                                 <label for="">GST</label>
-                                <input type="text" name="gst" class="form-control">
+                                <input type="text" name="company_gst" class="form-control">
                             </div>
                             <div class="col-md-4">
                                 <label for="">Address</label>
-                                <input type="" name="address" class="form-control">
+                                <input type="" name="company_address" class="form-control">
                             </div>
                             <div class="col-md-4">
                                 <label for="">State</label>
-                                <select name="state" id="state" class="form-control">
+                                <select name="company_state" id="estate" class="form-control">
                                     <option value="">Select</option>
+                                    @foreach ($state as $item)
+                                        <option value="{{ $item->state }}">{{ $item->state }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label for="">District</label>
-                                <select name="district" id="district" class="form-control">
+                                <select name="company_district" id="edistrict" class="form-control">
                                     <option value="">Select</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label for="">City</label>
-                                <input type="" name="city" class="form-control">
+                                <input type="" name="company_city" class="form-control">
                             </div>
                             <div class="col-md-4">
                                 <label for="">Pincode</label>
-                                <input type="" name="pincode" class="form-control">
+                                <input type="" name="company_pincode" class="form-control">
                             </div>
                             <div class="col-md-4 mt-2">
                                 <label for="">Email Template</label>
@@ -131,6 +134,22 @@
                                         <option value="{{ $item->id }}">{{ $item->name }}</option>
                                     @endforeach
                                 </select>
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                <label>Order Prefix</label>
+                                <input type="" name="order_series" id="order_series" class="form-control" >
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                <label>Order Series</label>
+                                <input type="number" name="order_id" id="order_id" class="form-control" >
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                <label>Invoice Prefix</label>
+                                <input type="" name="inv_series" id="inv_series" class="form-control" >
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                <label>Invoice Series</label>
+                                <input type="number" name="inv_id" id="inv_id" class="form-control" >
                             </div>
 
                         </div>
@@ -155,7 +174,7 @@
                                 </div>
                                 <div class="col-md-4 mt-2">
                                     <label for="">State</label>
-                                    <select name="state" id="state" class="form-control">
+                                    <select name="state" id="dstate" class="form-control">
                                         <option value="">Select</option>
                                         @foreach ($state as $item)
                                             <option value="{{ $item->state }}">{{ $item->state }}</option>
@@ -164,7 +183,7 @@
                                 </div>
                                 <div class="col-md-4 mt-2">
                                     <label for="">District</label>
-                                    <select name="district" id="district" class="form-control">
+                                    <select name="district" id="ddistrict" class="form-control">
                                         <option value="">Select</option>
                                     </select>
                                 </div>
@@ -208,18 +227,91 @@
             $("#modalTitleId").text("Edit");
             var data = $(this).data("data");
             $("#supplier_id").val(data.id);
-            $("input[name='name']").val(data.name);
-            $("input[name='number']").val(data.number);
-            $("input[name='email']").val(data.email);
-            $("input[name='gst']").val(data.gst);
-            $("input[name='address']").val(data.address);
-            $("select[name='state']").val(data.state);
-            $("select[name='district']").val(data.district);
-            $("input[name='city']").val(data.city);
-            $("input[name='pincode']").val(data.pincode);
+            $("input[name='company_name']").val(data.name);
+            $("input[name='company_number']").val(data.number);
+            $("input[name='company_email']").val(data.email);
+            $("input[name='company_gst']").val(data.gst);
+            $("input[name='company_address']").val(data.address);
+            $("select[name='company_state']").val(data.state);
+            $("select[name='company_district']").val(data.district);
+            $("input[name='company_city']").val(data.city);
+            $("input[name='company_pincode']").val(data.pincode);
             $("select[name='email_temp_id']").val(data.email_temp_id);
+            $("input[name='inv_id']").val(data.inv_id);
+            $("input[name='inv_series']").val(data.inv_series);
+            $("input[name='order_series']").val(data.order_series);
+            $("input[name='order_id']").val(data.order_id);
             $("#contactSection").hide();
             $("#modalId").modal("show");
         });
+    </script>
+
+     <script>
+        $("#estate").on("change", function() {
+   
+         $.ajax({
+             url: "/GetCity",
+             type: "POST",
+             data: {
+                 state: $(this).val(),
+             },
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+             },
+             beforeSend: function() {
+                 $("#loader").show();
+             },
+             success: function(result) {
+                 var html = "";
+                 html += '<option value="">----Select city----</option>';
+                 result.forEach(element => {
+
+                     html += '<option value="' + element.city + '" >' + element.city +
+                         '</option>';
+                 });
+                 $("#edistrict").html(html)
+             },
+             complete: function() {
+                 $("#loader").hide();
+             },
+             error: function(result) {
+                 toastr.error(result.responseJSON.message);
+             }
+         });
+
+     });
+      $("#dstate").on("change", function() {
+   
+         $.ajax({
+             url: "/GetCity",
+             type: "POST",
+             data: {
+                 state: $(this).val(),
+             },
+             headers: {
+                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+             },
+             beforeSend: function() {
+                 $("#loader").show();
+             },
+             success: function(result) {
+                 var html = "";
+                 html += '<option value="">----Select city----</option>';
+                 result.forEach(element => {
+
+                     html += '<option value="' + element.city + '" >' + element.city +
+                         '</option>';
+                 });
+                 $("#ddistrict").html(html)
+             },
+             complete: function() {
+                 $("#loader").hide();
+             },
+             error: function(result) {
+                 toastr.error(result.responseJSON.message);
+             }
+         });
+
+     });
     </script>
 @endsection

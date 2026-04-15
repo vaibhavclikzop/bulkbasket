@@ -29,30 +29,9 @@ class Masters extends Controller
 
     public function SaveSuppliers(Request $request)
     {
-        // $validator = Validator::make($request->all(), [
-        //     'number' => 'required|digits:10',
-        //     'name' => 'required',
-        //     'password' => 'required',
-        //     'company_name' => 'required',
-        //     'company_number' => 'required',
-        // ]);
-
-        // if ($validator->fails()) {
-        //     $messages = $validator->errors();
-        //     $count = 0;
-        //     foreach ($messages->all() as $error) {
-        //         if ($count == 0)
-        //             return redirect()->back()->with('error', $error);
-        //         $count++;
-        //     }
-        // }
-
         try {
             DB::beginTransaction();
-
-            // 🧠 Check if editing
             if ($request->has('id') && !empty($request->id)) {
-                // UPDATE supplier
                 DB::table('suppliers')->where('id', $request->id)->update([
                     "name" => $request->company_name,
                     "number" => $request->company_number,
@@ -64,6 +43,10 @@ class Masters extends Controller
                     "district" => $request->company_district,
                     "pincode" => $request->company_pincode,
                     "email_temp_id" => $request->email_temp_id,
+                    "inv_id" => $request->inv_id,
+                    "inv_series" => $request->inv_series,
+                    "order_id" => $request->order_id,
+                    "order_series" => $request->order_series,
                 ]);
                 DB::commit();
                 return redirect()->back()->with("success", "Updated Successfully");
@@ -85,15 +68,15 @@ class Masters extends Controller
                     "supplier_id" => $supplier_id,
                 ]);
                 DB::table('supplier_users')->insert([
-                    "name" => $request->name,
-                    "number" => $request->number,
-                    "email" => $request->email,
-                    "address" => $request->address,
-                    "state" => $request->state,
-                    "city" => $request->city,
-                    "district" => $request->district,
-                    "pincode" => $request->pincode,
-                    "password" => $request->password,
+                    "name" => $request->contact_name,
+                    "number" => $request->contact_number,
+                    "email" => $request->contact_email,
+                    "address" => $request->contact_address,
+                    "state" => $request->contact_state,
+                    "city" => $request->contact_city,
+                    "district" => $request->contact_district,
+                    "pincode" => $request->contact_pincode,
+                    "password" => bcrypt($request->password),
                     "role_id" => $role_id,
                     "supplier_id" => $supplier_id,
                 ]);
@@ -574,9 +557,9 @@ class Masters extends Controller
             $query->where("a.category_id", request("search_category_id"));
         }
         $productCount = DB::table('products')->count();
-        $productType=DB::table('product_type')->where('active',1)->get();
+        $productType = DB::table('product_type')->where('active', 1)->get();
         $data = $query->paginate(10)->withQueryString();
-        return view("suppliers.products", compact("data",'productType', 'warehouse', "vendor", "brand", "product_uom", "gst", "category", "productCount", "subCategories"));
+        return view("suppliers.products", compact("data", 'productType', 'warehouse', "vendor", "brand", "product_uom", "gst", "category", "productCount", "subCategories"));
     }
 
 
@@ -905,7 +888,7 @@ class Masters extends Controller
                 }
             } else {
                 $oldProduct = DB::table("products")->where("id", $request->id)->first();
-                 $description = $request->description ?? ''; 
+                $description = $request->description ?? '';
                 // $description = $request->description
                 //     ? $request->description
                 //     : ($oldProduct->description ?? '');
