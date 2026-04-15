@@ -27,6 +27,10 @@ class EstimateController extends Controller
         }
         return response()->json([
             "status" => true,
+            "wallet" => $customer->wallet,
+            "used_wallet" => $customer->used_wallet,
+            "hold_amount" => $customer->hold_amount,
+            "active_amount" => (round($customer->wallet - $customer->used_wallet - $customer->hold_amount, 2)),
             "address" => $customer->address,
             "state" => $customer->state,
             "district" => $customer->district,
@@ -51,6 +55,10 @@ class EstimateController extends Controller
                 'message' => $validator->errors()->first()
             ], 422);
         }
+        $challan_data = DB::table("suppliers")->where('id', 1)->first();
+        $current_order_id = $challan_data->order_id;
+        $next_order_id = $current_order_id + 1;
+        $order_id = $challan_data->order_series . $next_order_id;
         DB::beginTransaction();
         try {
             $prod_list = json_decode($request->prod_list);
@@ -90,6 +98,7 @@ class EstimateController extends Controller
             $total_amount = 0;
             $invoice_no = 'INV-' . $request->customer_id . date('YmdHis');
             $order_id = DB::table("order_estimate")->insertGetId([
+                "order_id" => $order_id,
                 "customer_id" => $request->customer_id,
                 "invoice_no" => $invoice_no,
                 "pay_mode" => $request->pay_mode,
@@ -138,17 +147,17 @@ class EstimateController extends Controller
                     "shipping_status" => "pending",
                 ]);
                 $total_amount += $finalSupplierTotal;
-            } 
+            }
             DB::table('order_estimate')->where('id', $order_id)->update([
                 'total_amount' => $total_amount
-            ]); 
+            ]);
             if ($request->pay_mode === 'wallet') {
                 $wallet = (float)($customer->wallet ?? 0);
                 $holdAmount = (float)($customer->hold_amount ?? 0);
                 $usedWallet = (float)($customer->used_wallet ?? 0);
                 if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
                     DB::rollBack();
-                    return redirect()->back()->with('error', 'Wallet amount is less than order total.');
+                    return redirect()->with('error', 'Wallet amount is less than order total.');
                 }
                 DB::table('order_estimate')->where('id', $order_id)->update([
                     'payment_status' => "Hold"
@@ -158,6 +167,11 @@ class EstimateController extends Controller
                     ->increment("hold_amount", $total_amount);
             }
             DB::commit();
+            DB::table("suppliers")
+                ->where('id', 1)
+                ->update([
+                    'order_id' => $next_order_id
+                ]);
             return redirect()->back()->with('success', "Estimate Saved Successfully");
         } catch (\Throwable $th) {
             DB::rollBack();

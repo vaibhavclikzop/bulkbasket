@@ -1,14 +1,17 @@
 @extends('suppliers.layouts.main')
 @section('main-section')
     @push('title')
-        <title>Create Estimate</title>
+        <title>Create Challan</title>
     @endpush
 
     <div class="card">
         <div class="card-header">
             <div class="d-flex justify-content-between">
                 <div>
-                    <h5>Create Estimate</h5>
+                    <h5>Create Challan </h5>
+                    <span class="text-success">
+                        <p style="font-size: 12px;">Upcoming Order ID : {{$order_id->order_series}}{{$order_id->order_id +1}}</p>
+                    </span>
                 </div>
 
             </div>
@@ -32,17 +35,16 @@
                         <label for="">Delivery Date</label>
                         <input type="date" value="{{ date('Y-m-d') }}" name="delivery_date" id="delivery_date"
                             class="form-control" required>
-
                     </div>
                     <div>
-                        <label for="">Pay Mode</label>
+                        <label for="">Pay Mode <span class="active_amount text-success"></span></label>
                         <select name="pay_mode" id="pay_mode" class="form-control" required>
                             <option value="">Select Pay mode</option>
                             <option value="wallet" selected>Wallet</option>
                             <option value="online">Online</option>
                         </select>
                     </div>
-                    <div class="mx-2 " style="width: 60%">
+                    <div class="mx-2 " style="width: 40%">
                         <label for="">Remarks</label>
                         <input type="text" name="remarks" id="remarks" class="form-control" required
                             placeholder="Enter Remarks">
@@ -119,7 +121,8 @@
                         <div class="col-md-2" style="width: 235px !important"><label for="">Product
                                 <button class=" btnRefreshProduct" type="button"
                                     style="outline: none; border:none; padding:0;margin:0"><i class="fa fa-refresh"
-                                        aria-hidden="true"></i></button> </label>
+                                        aria-hidden="true"></i></button> <span id="current_stock"
+                                    class="text-warning"></span></label>
                             <select name="product_id" id="product_id" class="form-control" disabled>
                                 <option value="">Select Product</option>
                             </select>
@@ -299,6 +302,7 @@
                 let customer_id = $(this).val();
 
                 if (customer_id == '') {
+                    $('.active_amount').html('');
                     $('.state').val('');
                     $('.district').val('');
                     $('.city').val('');
@@ -312,6 +316,7 @@
 
                         if (response.status) {
 
+                            $('.active_amount').html('(' + '₹' + +response.active_amount + ')');
                             $('.state').val(response.state);
                             $('.district').html(
                                 `<option value="${response.district}">${response.district}</option>`
@@ -325,6 +330,18 @@
                     }
                 });
 
+                function toggleActiveAmount() {
+                    let payMode = $('#pay_mode').val();
+                    if (payMode === 'wallet') {
+                        $('.active_amount').show();
+                    } else {
+                        $('.active_amount').hide();
+                    }
+                }
+                $('#pay_mode').on('change', function() {
+                    toggleActiveAmount();
+                });
+                toggleActiveAmount();
             })
             $("#product_id").select2({
                 width: "100%",
@@ -391,6 +408,8 @@
                     success: function(response) {
 
 
+                        $("#current_stock").html('(' + 'Stock : ' + +response.data
+                            .current_stock + ')')
                         $("#base_price").val(response.data.price)
                         $("#price").val(response.data.price)
                         $("#gst").val(response.data.gst)
@@ -470,7 +489,7 @@
             })
 
             function addProduct(product_id, product_name, qty, price, gst, cess_tax, mainID) {
-               let total = price * qty;
+                let total = price * qty;
 
                 let html = `<tr>
                             <td>${mainID}</td>

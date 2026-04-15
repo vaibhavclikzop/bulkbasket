@@ -11,7 +11,7 @@
 
             <div class="d-flex justify-content-between">
                 <div>
-                    <h5>New Orders</h5>
+                    <h5> Orders Management</h5>
                 </div>
                 {{-- <div class="mb-3">
                     <a href="{{ route('supplier/orders', ['status' => 'all']) }}"
@@ -37,10 +37,10 @@
                         <th>Invocie No</th>
                         <th>Order Date</th>
                         <th>Name</th>
-                        <th>Email</th>
+                        {{-- <th>Email</th> --}}
                         <th>Phone</th>
                         <th>Total</th>
-                        <th>Payment Mode</th>
+                        <th>Payment</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -52,11 +52,12 @@
                     @foreach ($data as $item)
                         <tr>
                             <td>{{ $sno++ }}</td>
-                            <td>#{{ $item->order_id }}</td>
-                            <td>{{ $item->order_status === 'dispatch' ? $item->invoice_no : '-' }}</td>
+                            <td>{{ $item->e_order_id }}</td>
+                            {{-- <td>{{ $item->order_status === 'dispatch' ? $item->invoice_no : '-' }}</td> --}}
+                            <td>{{ $item->invoice_no }}</td>
                             <td>{{ \Carbon\Carbon::parse($item->created_at)->format('d M \a\t g:i A') }}</td>
                             <td>{{ $item->customer_name }}</td>
-                            <td>{{ $item->customer_email }}</td>
+                            {{-- <td>{{ $item->customer_email }}</td> --}}
                             <td>{{ $item->customer_phone }}</td>
                             <td>{{ $item->total_amount }}</td>
                             <td>{{ ucfirst($item->pay_mode) }}</td>
@@ -66,14 +67,6 @@
                                     value="{{ $item->supplier_order_id }}" data-status="{{ $item->status }}"> <i
                                         class="fa fa-pencil" aria-hidden="true"></i>
                                 </button> --}}
-                                @if ($item->status == 'pending')
-                                    <a href="/supplier/order-details/{{ $item->estimate_id }}"
-                                        class="btn btn-primary btn-sm">
-                                        <i class="fa fa-eye" aria-hidden="true"></i> </a>
-                                    <a href="/supplier/outward-stock?customer_id={{ $item->customer_id }}&order_id={{ $item->id }}"
-                                        class="btn btn-primary btn-sm">
-                                        Rise Pick Ticket</a>
-                                @endif
                                 @if ($item->status == 'processing')
                                     <a href="/supplier/order-details/{{ $item->estimate_id }}"
                                         class="btn btn-primary btn-sm">
@@ -82,6 +75,22 @@
                                         class="btn btn-primary btn-sm">
                                         Rise Pick Ticket</a>
                                 @endif
+                                @if ($item->status == 'pending')
+                                    <a href="/supplier/order-details/{{ $item->estimate_id }}"
+                                        class="btn btn-primary btn-sm">
+                                        <i class="fa fa-eye" aria-hidden="true"></i> </a>
+                                    <a href="/supplier/outward-stock?customer_id={{ $item->customer_id }}&order_id={{ $item->id }}"
+                                        class="btn btn-primary btn-sm">
+                                        Rise Pick Ticket</a>
+                                @endif
+                                {{-- @if ($item->status == 'processing')
+                                    <a href="/supplier/order-details/{{ $item->estimate_id }}"
+                                        class="btn btn-primary btn-sm">
+                                        <i class="fa fa-eye" aria-hidden="true"></i> </a>
+                                    <a href="/supplier/outward-stock?customer_id={{ $item->customer_id }}&order_id={{ $item->id }}"
+                                        class="btn btn-primary btn-sm">
+                                        Rise Pick Ticket</a>
+                                @endif --}}
                                 @if ($item->status == 'complete')
                                     <a href="/supplier/order-details/{{ $item->estimate_id }}"
                                         class="btn btn-primary btn-sm">

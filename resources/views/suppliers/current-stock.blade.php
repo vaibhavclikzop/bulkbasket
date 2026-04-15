@@ -20,7 +20,7 @@
                         <tr>
                             <th>S.No</th>
                             <th>Product</th>
-                            <th>Article No</th>
+                            <th>HSN No</th>
                             <th>Warehouse</th>
                             <th>Location</th>
                             <th>Current Stock</th>
@@ -33,7 +33,7 @@
                             <tr>
                                 <td>{{ $sno++ }}</td>
                                 <td>{{ $item->product }}</td>
-                                <td>{{ $item->article_no }}</td>
+                                <td>{{ $item->hsn_code }}</td>
                                 <td>{{ $item->warehouse }}</td>
                                 <td>{{ $item->location_code }}</td>
                                 <td>{{ $item->total_stock }}</td>

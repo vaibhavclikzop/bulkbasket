@@ -394,7 +394,7 @@
                          </a>
                      </li>
 
-                     <li class="nav-item">
+                     {{-- <li class="nav-item">
                          <a class="nav-link" data-bs-toggle="collapse" href="#order-estimate" role="button"
                              aria-expanded="false" aria-controls="horizontal-menu">
                              <i class="fa fa-file" aria-hidden="true"></i>
@@ -570,12 +570,126 @@
                                  </a>
                              </li>
                          </ul>
+                     </li> --}}
+
+                     <li class="nav-item">
+                         <a class="nav-link" data-bs-toggle="collapse" href="#order-mgmte" role="button"
+                             aria-expanded="false" aria-controls="horizontal-menu">
+                             <i class="fa fa-clipboard" aria-hidden="true"></i>
+                             <span class="item-name">Order Management </span>
+                             <i class="right-icon">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" class="icon-18"
+                                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                         d="M9 5l7 7-7 7"></path>
+                                 </svg>
+                             </i>
+                         </a>
+                         <ul class="sub-nav collapse" id="order-mgmte" data-bs-parent="#sidebar-menu">
+                            <li class="nav-item">
+                                 <a class="nav-link " href="/supplier/create-estimate">
+                                     <i class="icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="Create Challan"
+                                         data-bs-placement="right"> Order Management </i>
+                                     <span class="item-name">Create Challan</span>
+                                 </a>
+                             </li>
+                             <li class="nav-item">
+                                 <a class="nav-link " href="/supplier/orders-estimate/pending">
+                                     <i class="icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="New Challan"
+                                         data-bs-placement="right"> Order Management </i>
+                                     <span class="item-name">New Challan</span>
+                                 </a>
+                             </li>
+                             <li class="nav-item">
+                                 <a class="nav-link " href="/supplier/orders?status=processing">
+                                     <i class="icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="Processing Order"
+                                         data-bs-placement="right"> Order Management </i>
+                                     <span class="item-name"> Processing Order </span>
+                                 </a>
+                             </li>
+                              <li class="nav-item">
+                                 <a class="nav-link " href="/supplier/orders?status=pending">
+                                     <i class="icon svg-icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="complete Order"
+                                         data-bs-placement="right"> Order Management </i>
+                                     <span class="item-name">Pending Order </span>
+                                 </a>
+                             </li>
+                             <li class="nav-item">
+                                 <a class="nav-link " href="/supplier/orders?status=complete">
+                                     <i class="icon svg-icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="complete Order"
+                                         data-bs-placement="right"> Order Management </i>
+                                     <span class="item-name">Complete Order </span>
+                                 </a>
+                             </li>
+                            
+                             <li class="nav-item">
+                                 <a class="nav-link " href="/supplier/outward-order-list?status=pending">
+                                     <i class="icon svg-icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="complete Order"
+                                         data-bs-placement="right"> Order Management </i>
+                                     <span class="item-name">View Pick Ticket </span>
+                                 </a>
+                             </li>
+                         </ul>
                      </li>
 
                      <li class="nav-item">
                          <a class="nav-link" data-bs-toggle="collapse" href="#dispatch-mgmt" role="button"
                              aria-expanded="false" aria-controls="horizontal-menu">
-                             <i class="fa fa-clipboard" aria-hidden="true"></i>
+                             <i class="fa fa-truck" aria-hidden="true"></i>
                              <span class="item-name">Dispatch Management</span>
                              <i class="right-icon">
                                  <svg xmlns="http://www.w3.org/2000/svg" width="18" class="icon-18"
@@ -587,7 +701,7 @@
                          </a>
                          <ul class="sub-nav collapse" id="dispatch-mgmt" data-bs-parent="#sidebar-menu">
                              <li class="nav-item">
-                                 <a class="nav-link " href="#">
+                                 <a class="nav-link " href="/supplier/dispatch-plan/processing">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -602,7 +716,7 @@
                                      <span class="item-name">Dispatch Plan</span>
                                  </a>
                              </li>
-                             <li class="nav-item">
+                             {{-- <li class="nav-item">
                                  <a class="nav-link " href="#">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
@@ -617,9 +731,9 @@
                                          data-bs-placement="right"> Dispatch Management </i>
                                      <span class="item-name">Ready to Deliver </span>
                                  </a>
-                             </li>
+                             </li> --}}
                              <li class="nav-item">
-                                 <a class="nav-link " href="#">
+                                 <a class="nav-link " href="/supplier/outwards/delivered">
                                      <i class="icon svg-icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -632,6 +746,22 @@
                                      <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="complete Order"
                                          data-bs-placement="right">Dispatch Management</i>
                                      <span class="item-name">Delivered </span>
+                                 </a>
+                             </li>
+                             <li class="nav-item">
+                                 <a class="nav-link " href="/supplier/outwards/cancel">
+                                     <i class="icon svg-icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="complete Order"
+                                         data-bs-placement="right">Dispatch Management</i>
+                                     <span class="item-name">Cancel </span>
                                  </a>
                              </li>
                          </ul>
@@ -650,14 +780,6 @@
                              <span class="item-name">Invoices</span>
                          </a>
                      </li>
-
-                     <li class="nav-item">
-                         <a class="nav-link " aria-current="page" href="#">
-                             <i class="fa fa-truck" aria-hidden="true"></i>
-                             <span class="item-name">Dispatch</span>
-                         </a>
-                     </li>
-
 
 
                      {{-- <li class="nav-item">

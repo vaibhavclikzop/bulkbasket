@@ -60,8 +60,11 @@ class OutWardController extends Controller
 
     public function GetCustomerOrder(Request $request)
     {
-        $order_mst =  DB::table("orders")->where("customer_id", $request->id)
-            ->whereNot("order_status", "complete")
+        $order_mst =  DB::table("orders as a")
+        ->select('a.*','oe.order_id as e_order_id')
+        ->join("order_estimate as oe", "a.estimate_id", "=", "oe.id")
+        ->where("a.customer_id", $request->id)
+            ->whereNot("a.order_status", "complete")
             ->get();
         return $order_mst;
     }
@@ -213,7 +216,7 @@ class OutWardController extends Controller
                 DB::table('orders')
                     ->where("id", $request->order_id)
                     ->update([
-                        "status" => "processing"
+                        "status" => "pending"
                     ]);
             } else {
                 DB::table('orders')
@@ -239,6 +242,7 @@ class OutWardController extends Controller
                 "a.*",
                 "c.name as customer_name",
                 "b.status as outward_status",
+                "oe.order_id as e_order_id",
                 DB::raw("
                 (
                     SELECT SUM(
@@ -251,6 +255,7 @@ class OutWardController extends Controller
             ")
             )
             ->join("orders as b", "a.order_id", "=", "b.id")
+            ->join("order_estimate as oe", "b.estimate_id", "=", "oe.id")
             ->leftJoin("customer_users as c", "b.customer_id", "=", "c.id")
             ->where("a.supplier_id", $request->user['supplier_id']);
         if ($id) {
@@ -353,11 +358,14 @@ class OutWardController extends Controller
                 "a.order_id",
                 "a.outward_id",
                 "a.invoice_id",
+                "oe.order_id",
                 "a.status",
                 "a.is_invoice",
                 "a.is_e_invoice",
                 "a.EinvoicePdf",
                 "a.dispatch_status",
+                "a.is_e_billing",
+                "a.eway_bill_url",
                 "a.created_at",
                 "c.name as customer_name",
                 DB::raw("SUM((d.qty * d.price) 
@@ -366,6 +374,7 @@ class OutWardController extends Controller
         ) as total_amount")
             )
             ->leftJoin("orders as b", "a.order_id", "=", "b.id")
+            ->leftJoin("order_estimate as oe", "b.estimate_id", "=", "oe.id")
             ->leftJoin("customer_users as c", "b.customer_id", "=", "c.id")
             ->leftJoin("stock_outward_det as d", "a.id", "=", "d.mst_id")
             ->leftJoin("products as p", "d.product_id", "=", "p.id")
@@ -381,12 +390,16 @@ class OutWardController extends Controller
                 "a.is_invoice",
                 "a.is_e_invoice",
                 "a.dispatch_status",
+                "a.is_e_billing",
+                "oe.order_id",
+                "a.eway_bill_url",
                 "a.created_at",
                 "c.name"
             );
         $outward = $out
             ->orderBy("a.id", "desc")
             ->get();
+            // dd($outward);
         return view("suppliers.invoices", compact("outward"));
     }
 

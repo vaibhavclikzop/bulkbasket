@@ -108,6 +108,12 @@ class CustomerProductPrice extends Controller
 
         try {
             $query = DB::table("products as a")
+                ->select(
+                    "a.*",
+                    DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
+                FROM current_stock cs
+                WHERE cs.product_id = a.id) as current_stock"),
+                )
                 ->where("a.supplier_id", $request->user["supplier_id"]);
 
             $words = explode(' ', strtolower($request->search));
@@ -153,6 +159,9 @@ class CustomerProductPrice extends Controller
                     "a.name as name",
                     "a.gst",
                     "a.cess_tax",
+                    DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
+                    FROM current_stock cs
+                    WHERE cs.product_id = a.id) as current_stock"),
                     DB::raw("COALESCE(b.base_price, a.base_price) as price"),
 
                 )

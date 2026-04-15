@@ -152,7 +152,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('supplier/SaveProductCategory', [Masters::class, 'SaveProductCategory'])->name('supplier/SaveProductCategory');
 
     // master supplier Expense
-    Route::get('supplier/expense-category', [Masters::class, 'expenseCategory'])->name('supplier/product-category');
+    Route::get('supplier/expense-category', [Masters::class, 'expenseCategory'])->name('supplier/expense-category');
     Route::post('supplier/expenseSaveCategory', [Masters::class, 'expenseSaveCategory'])->name('supplier/expenseSaveCategory');
 
     Route::get('supplier/expense-list', [Masters::class, 'expenseList'])->name('supplier/expense-list');
@@ -234,7 +234,7 @@ Route::middleware([Suppliers::class])->group(function () {
 
 
     // order management
-    Route::get('supplier/orders/{status}', [Supplier::class, 'Orders'])->name('supplier/orders');
+    Route::get('supplier/orders/{status}', [Supplier::class, 'Orders'])->name('supplier/orderss');
     Route::get('supplier/order-details/{id}', [Supplier::class, 'OrderDetails'])->name('supplier/order-details');
     Route::get('supplier/orders', [Supplier::class, 'OrdersManagement'])->name('supplier/orders');
 
@@ -304,13 +304,13 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::get('product-search', [CustomerProductPrice::class, 'customerProductSearch']);
     Route::get('supplier/customer-product-price/{id}', [CustomerProductPrice::class, 'customerProductAdd'])->name('supplier/customer-product-price');
     Route::post('supplier/customer-product-save',  [CustomerProductPrice::class, 'store'])->name('customer-product-save');
-    Route::get('supplier/customer-product-list/{id}', [CustomerProductPrice::class, 'customerProductList'])->name('supplier/customer-product-price');
+    Route::get('supplier/customer-product-list/{id}', [CustomerProductPrice::class, 'customerProductList'])->name('supplier/customer-product-list');
     Route::post('supplier/GetCustomerProductPrices', [CustomerProductPrice::class, 'GetCustomerProductPrices'])->name('supplier/GetCustomerProductPrices');
     Route::post('supplier/DeleteCustomerProductPrice', [CustomerProductPrice::class, 'DeleteCustomerProductPrice'])->name('supplier/DeleteCustomerProductPrice');
     Route::post('supplier/AddCustomerProductPrice', [CustomerProductPrice::class, 'AddCustomerProductPrice'])->name('supplier/AddCustomerProductPrice');
 
-    Route::get('supplier/create-orders-estimate', [Supplier::class, 'createOrderEstimate'])->name('supplier/create-orders-estimate');
-    Route::post('supplier/create-orders-estimate', [Supplier::class, 'getCustomerProducts'])->name('supplier/create-orders-estimate');
+    // Route::get('supplier/create-orders-estimate', [Supplier::class, 'createOrderEstimate'])->name('supplier/create-orders-estimate');
+    // Route::post('supplier/create-orders-estimate', [Supplier::class, 'getCustomerProducts'])->name('supplier/create-orders-estimate');
     Route::post('supplier/getOrderProducts', [CustomerProductPrice::class, 'getOrderProducts'])->name('supplier/getOrderProducts');
     Route::post('supplier/getProductPrice', [CustomerProductPrice::class, 'getProductPrice'])->name('supplier/getProductPrice');
     Route::post('supplier/getProductQtyWisePrice', [CustomerProductPrice::class, 'getProductQtyWisePrice'])->name('supplier/getProductQtyWisePrice');
@@ -383,12 +383,15 @@ Route::middleware([Suppliers::class])->group(function () {
 
     Route::post('/supplier/generateEInvoice', [EInvoiceController::class, 'generateEInvoice'])->name('/supplier/generateEInvoice');
     Route::post('/supplier/generateEwayBill', [EInvoiceController::class, 'generateEwayBill'])
-    ->name('/supplier/generateEwayBill');
+        ->name('/supplier/generateEwayBill');
 
     //Dispatch  Plan
     Route::get('supplier/mode-of-transport', [DispatchController::class, 'ModeOfTransport'])->name('supplier/mode-of-transport');
     Route::post('supplier/SaveModeOfTransport', [DispatchController::class, 'SaveModeOfTransport'])->name('supplier/SaveModeOfTransport');
-    Route::get('supplier/dispatch-plan', [DispatchController::class, 'dispatchPlan'])->name('supplier/dispatch-plan');
+    Route::get('supplier/dispatch-plan/{status}', [DispatchController::class, 'dispatchPlan'])->name('supplier/dispatch-plan');
+    Route::get('supplier/outwards/{status}', [DispatchController::class, 'orderDelivered'])->name('supplier/outwards-delivered');
+    Route::post('supplier/DispatchTransport', [DispatchController::class, 'DispatchTransport'])->name('supplier/DispatchTransport');
+    Route::post('supplier/DispatchOrderStatus', [DispatchController::class, 'DispatchOrderStatus'])->name('supplier/DispatchOrderStatus');
 
     //export
     Route::get('supplier/export-products', [excelExport::class, 'export']);
@@ -507,7 +510,7 @@ Route::middleware([Customers::class])->group(function () {
     Route::get("customer/outward-challan-view/{id}", [OutwardManagement::class, "OutwardChallanView"])->name("customer/outward-challan-view");
 
     // master customer Expense
-    Route::get('customer/expense-category', [Customer::class, 'expenseCategory'])->name('customer/product-category');
+    Route::get('customer/expenses-category', [Customer::class, 'customerExpenseCategory'])->name('customer/expenses-category');
     Route::post('customer/expenseSaveCategory', [Customer::class, 'expenseSaveCategory'])->name('customer/expenseSaveCategory');
 
     Route::get('customer/expense-list', [Customer::class, 'expenseList'])->name('customer/expense-list');
@@ -523,12 +526,12 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::get('profile', [CustomerFrontendController::class, 'Profile'])->name('profile');
     Route::post('AddToCart', [CustomerFrontendController::class, 'AddToCart'])->name('AddToCart');
     Route::get('cart', [CustomerFrontendController::class, 'Cart'])->name('cart');
-    Route::get('checkout', [CustomerFrontendController::class, 'Checkout'])->name('checkout');
+    // Route::get('checkout', [CustomerFrontendController::class, 'Checkout'])->name('checkout');
     Route::post('SaveOrder', [CustomerFrontendController::class, 'SaveOrder'])->name('SaveOrder');
     Route::get('logout', [CustomerFrontendController::class, 'Logout'])->name('Logout');
     Route::post('UpdateCompanyDetails', [CustomerFrontendController::class, 'UpdateCompanyDetails'])->name('UpdateCompanyDetails');
     Route::post('UpdateCustomerDetails', [CustomerFrontendController::class, 'UpdateCustomerDetails'])->name('UpdateCustomerDetails');
-    Route::get('invoice/{id}', [CustomerFrontendController::class, 'Invoice'])->name('invoice');
+    // Route::get('invoice/{id}', [CustomerFrontendController::class, 'Invoice'])->name('invoice');
     Route::post('UploadDocument', [Supplier::class, 'UploadDocument'])->name('UploadDocument');
     Route::post('shopAddToCart', [CustomerFrontendController::class, 'shopAddToCart'])->name('shopAddToCart');
 });

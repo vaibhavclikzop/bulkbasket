@@ -25,9 +25,11 @@ class AppServiceProvider extends ServiceProvider
         $state = DB::table("state_city")->distinct('state')->select("state")->get();
         $setting = DB::table("company_settings")->where("id", 1)->first();
         $header_supplier = DB::table("suppliers")->get();
+        $order_id = DB::table("suppliers")->where('id',1)->first();
         View::share('state', $state);
         View::share('setting', $setting);
         View::share('header_supplier', $header_supplier);
+        View::share('order_id', $order_id);
         require_once app_path('helpers.php');
         // Bootstrap 5
         Paginator::useBootstrapFive();

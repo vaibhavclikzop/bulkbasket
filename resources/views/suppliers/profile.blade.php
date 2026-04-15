@@ -46,13 +46,21 @@
                         <label>City</label>
                         <input type="" name="city" value="{{ $data->city }}" class="form-control">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 mt-2">
                         <label>Pincode</label>
                         <input type="" name="pincode" value="{{ $data->pincode }}" class="form-control">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 mt-2">
                         <label>Password</label>
                         <input type="" name="password" value="{{ $data->password }}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3 mt-2">
+                        <label>Challan Prefix</label>
+                        <input type="" readonly name="order_series" value="{{ $data->order_series }}" class="form-control" required>
+                    </div>
+                    <div class="col-md-3 mt-2">
+                        <label>Challan Series</label>
+                        <input type="number" readonly name="order_id" value="{{ $data->order_id}}" class="form-control" required>
                     </div>
                     <div class="col-md-12 mt-4 text-center">
                         <button class="btn btn-primary" type="submit">Save</button>

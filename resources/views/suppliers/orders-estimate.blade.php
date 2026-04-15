@@ -41,7 +41,7 @@
                             <td>{{ $sno++ }}</td>
                             <td>{{ $item->name }}</td>
                             <td>{{ $item->number }}</td>
-                            <td>#{{ $item->id }}</td>
+                            <td>{{ $item->order_id }}</td>
                             <td>{{ $item->delivery_date }}</td>
                             {{-- <td>{{ $item->email }}</td> --}}
                             {{-- <td>{{ $item->address }}, {{ $item->city }}, {{ $item->district }}, {{ $item->state }},

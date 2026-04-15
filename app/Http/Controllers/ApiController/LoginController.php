@@ -83,78 +83,54 @@ class LoginController extends Controller
     public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'number' => 'required',
-            'otp' => 'required',
-            'security_token' => 'required',
+            'number' => 'required|digits:10',
+            'otp' => 'required|digits:6',
         ]);
+
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Invalid input',
             ], 422);
         }
+
         $number = $request->number;
-        $otpKey = 'otp_' . $number;
-        $expiryKey = 'otp_expiry_' . $number;
-        $attemptKey = 'otp_attempt_' . $number; 
-        $storedSecurityToken = Cache::get('otp_token_' . $number);
 
-        if (!$storedSecurityToken || $storedSecurityToken !== $request->security_token) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Invalid security token.',
-            ], 403);
-        } 
-        $attempts = Cache::get($attemptKey, 0);
-        if ($attempts >= 5) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Too many attempts. Please request OTP again.',
-            ], 429);
-        }
+        // OTP from cache
+        $storedOtp = Cache::get('otp_' . $number);
 
-        $storedOtp = Cache::get($otpKey);
-        $expiry = Cache::get($expiryKey);
-
-        Log::info("OTP VERIFY", [
-            'number' => $number,
-            'entered' => $request->otp,
-            'stored' => $storedOtp,
-            'expiry' => $expiry
-        ]); 
         if (!$storedOtp) {
             return response()->json([
                 'status' => false,
-                'message' => 'OTP expired or not found. Request again.',
+                'message' => 'OTP expired or not found. Please request again.',
             ]);
-        } 
-        if ($expiry && now()->timestamp > $expiry) {
-            Cache::forget($otpKey);
-            Cache::forget($expiryKey);
+        }
 
-            return response()->json([
-                'status' => false,
-                'message' => 'OTP expired. Please request again.',
-            ]);
-        } 
         if ($storedOtp != $request->otp) {
-            Cache::put($attemptKey, $attempts + 1, 300);
-
             return response()->json([
                 'status' => false,
-                'message' => 'Incorrect OTP.',
+                'message' => 'Incorrect OTP',
             ]);
-        } 
-        Cache::forget($otpKey);
-        Cache::forget($expiryKey);
-        Cache::forget($attemptKey);
-        Cache::forget('otp_token_' . $number);
+        }
 
+        // OTP verified → remove cache
+        Cache::forget('otp_' . $number);
+
+        // Check user
         $user = DB::table("customer_users as a")
             ->select("a.*", "b.active", "b.supplier_id")
             ->join("customers as b", "a.customer_id", "b.id")
             ->where("a.number", $number)
-            ->first(); 
+            ->first();
+
+        $token = bin2hex(random_bytes(16));
+
+        $agent = new \Jenssegers\Agent\Agent();
+        $browser = $agent->browser();
+        $version = $agent->version($browser);
+        $platform = $agent->platform();
+
+        // CASE 1: New user (guest create)
         if (!$user) {
 
             $customerId = DB::table('customers')->insertGetId([
@@ -162,52 +138,63 @@ class LoginController extends Controller
                 'active' => 0,
                 'number' => $number,
                 'supplier_id' => 0,
-                'created_at' => now(),
-                'updated_at' => now(),
             ]);
 
-            DB::table('customer_users')->insert([
+            $userId = DB::table('customer_users')->insertGetId([
                 'customer_id' => $customerId,
                 'number' => $number,
                 'name' => 'Guest User',
-                'created_at' => now(),
-                'updated_at' => now(),
+                'web_token' => $token,
+                'last_ip' => $request->ip(),
+                'last_login' => now(),
+                'platform' => "$browser / $version / $platform"
             ]);
 
             return response()->json([
                 'status' => true,
-                'message' => 'Number verified. Please complete signup.',
+                'message' => 'OTP verified. Proceed to signup.',
+                'web_token' => $token,
+                'number' => $number,
+                'user_id' => $userId,
                 'redirect' => 'signup'
             ]);
-        } 
+        }
+
+        // CASE 2: Not active user
         if ($user->active == 0 && $user->supplier_id == 0) {
+
+            DB::table('customer_users')
+                ->where('id', $user->id)
+                ->update([
+                    'web_token' => $token
+                ]);
+
             return response()->json([
-                'status' => false,
-                'message' => 'Please sign up to proceed.',
+                'status' => true,
+                'message' => 'OTP verified. Please complete signup.',
+                'web_token' => $token,
+                'number' => $number,
+                'user_id' => $user->id,
                 'redirect' => 'signup'
             ]);
-        } 
+        }
+
+        // CASE 3: Pending
         if ($user->active == 2) {
             return response()->json([
                 'status' => false,
                 'message' => 'Your account is under process.',
                 'redirect' => 'pending'
             ]);
-        } 
-        $token = hash('sha256', $number . microtime(true) . Str::random(40));
-        $agent = new \Jenssegers\Agent\Agent();
-        $browser = $agent->browser();
-        $version = $agent->version($browser);
-        $platform = $agent->platform();
+        }
 
-        DB::table('customer_users')
-            ->where("id", $user->id)
-            ->update([
-                'web_token' => $token,
-                'last_ip' => $request->ip(),
-                'last_login' => now(),
-                'platform' => "$browser / $version / $platform"
-            ]);
+        // CASE 4: Active login
+        DB::table('customer_users')->where('id', $user->id)->update([
+            'web_token' => $token,
+            'last_ip' => $request->ip(),
+            'last_login' => now(),
+            'platform' => "$browser / $version / $platform"
+        ]);
 
         DB::table('remember_token')->insert([
             'web_token' => $token,
@@ -221,7 +208,7 @@ class LoginController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Login successful',
-            'token' => $token,
+            'web_token' => $token,
             'user' => $user,
             'redirect' => 'home'
         ]);

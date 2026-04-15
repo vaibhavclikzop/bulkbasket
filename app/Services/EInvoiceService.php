@@ -119,15 +119,31 @@ class EInvoiceService
 
                 $assessableValue = round($price, 2);
 
+                // $igst = 0;
+                // $cgst = 0;
+                // $sgst = 0;
+
+                // if ($stateCode == "03") {
+                //     $cgst = round(($assessableValue * $gstRate) / 200, 2);
+                //     $sgst = round(($assessableValue * $gstRate) / 200, 2);
+                // } else {
+                //     $igst = round(($assessableValue * $gstRate) / 100, 2);
+                // }
+
+                $sellerState = substr($gstRate, 0, 2);
+                $buyerState  = $invoiceMst->state_code ?? $requestBuyerState ?? "09"; // ensure you have it
+
+                $isInterState = ($sellerState !== $buyerState);
+
                 $igst = 0;
                 $cgst = 0;
                 $sgst = 0;
 
-                if ($stateCode == "03") {
+                if ($isInterState) {
+                    $igst = round(($assessableValue * $gstRate) / 100, 2);
+                } else {
                     $cgst = round(($assessableValue * $gstRate) / 200, 2);
                     $sgst = round(($assessableValue * $gstRate) / 200, 2);
-                } else {
-                    $igst = round(($assessableValue * $gstRate) / 100, 2);
                 }
 
                 $total = $assessableValue + $igst + $cgst + $sgst;
@@ -160,10 +176,9 @@ class EInvoiceService
                     "total_item_value" => round($total * $qty, 2)
                 ];
             }
+            $gstin = "05AAAPG7885R002";
 
             $payload = [
-                $gstin = "05AAAPG7885R002",
-
                 "user_gstin" => $gstin,
                 "data_source" => "erp",
 
@@ -267,6 +282,4 @@ class EInvoiceService
             ]);
         }
     }
-
-   
 }

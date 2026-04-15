@@ -6,8 +6,8 @@
 
         <div class="d-flex justify-content-between align-items-center flex-wrap mb-5 gap-3">
             <div class="d-flex flex-column">
-                <h3>Quick Insights</h3>
-                <p class="mb-0">Financial Dashboard</p>
+                <h3>Bulk Basket India</h3>
+                <p class="mb-0">Dashboard</p>
             </div>
             <div class="d-flex justify-content-between align-items-center rounded flex-wrap gap-3">
                  
@@ -60,7 +60,7 @@
                             </div>
                             <div>
                                 <h3>{{ $totalEstimates }}</h3>
-                                <p class="mb-0">Order Estimate</p>
+                                <p class="mb-0">Order Challan</p>
                             </div>
 
                         </div>
@@ -123,7 +123,7 @@
                 <div class="card card-block card-stretch card-height">
                     <div class="flex-wrap card-header d-flex justify-content-between border-0">
                         <div class="header-title">
-                            <h4 class=" card-title">Recent Order Estimate</h4>
+                            <h4 class=" card-title">Recent Order Challan</h4>
                         </div>
                         <div>
                             <a href="/supplier/orders-estimate/pending"> <button class="btn btn-sm btn-primary">View All</button></a>

@@ -188,7 +188,7 @@ class Supplier extends Controller
 
     public function Profile(Request $request)
     {
-        $data = DB::table("supplier_users")->where("id", $request->user['id'])->first();
+        $data = DB::table("supplier_users as a")->select("a.*", "b.order_id", "b.order_series")->join('suppliers as b', "a.supplier_id", "b.id")->where("a.id", $request->user['id'])->first();
         return view("suppliers.profile", compact("data"));
     }
 
@@ -637,10 +637,10 @@ class Supplier extends Controller
                 "a.shipping_status as status",
                 "b.id",
                 "a.id as supplier_order_id",
-                "c.total_amount" // 👈 total from orders
+                "c.total_amount"
             )
             ->join("order_estimate as b", "a.order_id", "b.id")
-            ->leftJoin("orders as c", "b.id", "c.estimate_id") // 👈 join orders table
+            ->leftJoin("orders as c", "b.id", "c.estimate_id")
             ->where("a.supplier_id", $request->user['supplier_id'])
             ->where("b.order_status", $status)
             ->orderBy("a.id", "desc")
@@ -655,9 +655,6 @@ class Supplier extends Controller
 
     public function OrderEstimateEdit(Request $request, $id)
     {
-
-
-
         $orders = DB::table("order_estimate as a")
             ->select(
                 "a.*",
@@ -965,7 +962,7 @@ class Supplier extends Controller
             ->leftJoin("customer_users as cu", "a.customer_id", "cu.id")
             ->leftJoin("customers as cus", "a.customer_id", "cus.id")
             ->where("a.id", $id)
-            ->first(); 
+            ->first();
         $det = DB::table("order_estimate_item as a")
             ->select(
                 "a.*",
@@ -1084,7 +1081,6 @@ class Supplier extends Controller
     public function OrdersManagement(Request $request)
     {
         $status = $request->status ?? 'pending';
-
         $query = DB::table("orders_supplier as a")
             ->select(
                 "b.*",
@@ -1095,15 +1091,19 @@ class Supplier extends Controller
                 "a.id as supplier_order_id",
                 "c.name as customer_name",
                 "c.email as customer_email",
-                "c.number as customer_phone"
+                "c.number as customer_phone",
+                "oe.order_id as e_order_id"
             )
-            ->join("orders as b", "a.order_id", "=", "b.id")
+            // ->join("orders as b", "a.order_id", "=", "b.id")
+            ->join("orders as b", "a.order_id", "=", "b.estimate_id")
             ->join("customers as c", "b.customer_id", "=", "c.id")
-            ->where("a.supplier_id", $request->user['supplier_id']);
+            ->join("order_estimate as oe", "b.estimate_id", "=", "oe.id")
+            ->where("a.supplier_id", 1);
         if ($status != 'all') {
             $query->whereRaw("LOWER(b.status) = ?", [strtolower($status)]);
         }
         $data = $query->orderBy("a.id", "desc")->get();
+        // dd($data);
         $suppliers = DB::table("supplier_users")
             ->whereIn("id", $request->userIds)
             ->get();
@@ -1571,6 +1571,151 @@ class Supplier extends Controller
                         'updated_at' => now(),
                     ]);
             }
+            $orderId = $request->id;
+            $is_invoice = 1;
+            $payment_status = "complete";
+            $totalAmount = 0;
+            $oldholdAmnt = $request->total_amount;
+            $orders = DB::table("order_estimate as a")
+                ->select(
+                    "a.*",
+                    "c.name as supplier_name",
+                    "c.number as supplier_number",
+                    "c.email as supplier_email",
+                    "c.address as supplier_address",
+                    "c.state as supplier_state",
+                    "c.district as supplier_district",
+                    "c.city as supplier_city",
+                    "c.pincode as supplier_pincode",
+                    "b.subtotal",
+                    "b.shipping_status as status",
+                    "b.id as supplier_id",
+                    "cu.name as customer_name",
+                    "cu.email as customer_email",
+                    "cu.number as customer_number",
+                    "cu.address as customer_address",
+                    "cu.state as customer_state",
+                    "cu.district as customer_district",
+                    "cu.city as customer_city",
+                    "cu.pincode as customer_pincode"
+                )
+                ->leftJoin("orders_supplier as b", "a.id", "b.order_id")
+                ->leftJoin("suppliers as c", "b.supplier_id", "c.id")
+                ->leftJoin("customer_users as cu", "a.customer_id", "cu.id")
+                ->leftJoin("customers as cus", "a.customer_id", "cus.id")
+                ->where("a.id", $orderId)
+                ->first();
+            $data = DB::table("order_estimate_item as a")
+                ->select(
+                    "a.*",
+                    "b.hsn_code",
+                    "b.gst",
+                    "b.description",
+                    "b.cess_tax",
+                    "c.name as uom"
+                )
+                ->join("products as b", "a.product_id", "b.id")
+                ->join("product_uom as c", "b.uom_id", "c.id")
+                // ->where("a.supplier_id", $orders->supplier_id)
+                ->where("a.order_id", $orders->id)
+                ->get();
+            $totalAmount = 0;
+            foreach ($data as $row) {
+                $price = $row->price ?? 0;
+                $qty   = $row->qty ?? 0;
+                $gst   = $row->gst ?? 0;
+                $cess  = $row->cess_tax ?? 0;
+
+                $itemTotal = $price * $qty;
+                $taxTotal  = ($itemTotal * ($gst + $cess)) / 100;
+
+                $totalAmount += $itemTotal + $taxTotal;
+            }
+            $customer = DB::table('customers')->where('id', $orders->customer_id)->first();
+            $paymode=$orders->pay_mode;
+            $interestAmount = 0;
+            if ($paymode == 'wallet' && $customer) {
+                $holdAmount = $customer->hold_amount ?? 0;
+                $usedWallet = $customer->used_wallet ?? 0;
+                if ($usedWallet < 0) {
+                    $interestAmount = $totalAmount + $usedWallet;
+                } else {
+                    $interestAmount = $totalAmount;
+                }
+                $newHoldAmount = max($holdAmount - $oldholdAmnt, 0);
+                $newUsedWallet = $usedWallet + $totalAmount;
+                DB::table('customers')->where('id', $orders->customer_id)->update([
+                    'hold_amount' => $newHoldAmount,
+                    'used_wallet' => $newUsedWallet,
+                    'updated_at' => now(),
+                ]);
+            }
+            $order = DB::table('orders')
+                ->where('estimate_id', $orderId)
+                ->first();
+            if ($order) {
+                DB::table('orders')->where('id', $order->id)->update([
+                    'customer_id' => $orders->customer_id,
+                    'total_amount' => $totalAmount,
+                    'intrest_amount' => $interestAmount,
+                    'is_invoice' => $is_invoice,
+                    'invoice_no' => $request->invoice_no,
+                    'name' => $orders->name ?? '',
+                    'number' => $orders->number ?? '',
+                    'email' => $orders->email ?? '',
+                    'pay_mode' => $paymode,
+                    'payment_status' => $payment_status,
+                    'address' => $orders->address ?? '',
+                    'state' => $orders->state ?? '',
+                    'district' => $orders->district ?? '',
+                    'city' => $orders->city ?? '',
+                    'pincode' => $orders->pincode ?? '',
+                    'updated_at' => now(),
+                ]);
+                $order_id = $order->id;
+                DB::table('orders_item')->where('order_id', $order_id)->delete();
+            } else {
+                $order_id = DB::table('orders')->insertGetId([
+                    'estimate_id' => $orderId,
+                    'customer_id' => $orders->customer_id,
+                    'total_amount' => $totalAmount,
+                    'intrest_amount' => $interestAmount,
+                    'is_invoice' => $is_invoice,
+                    'invoice_no' => $orders->invoice_no,
+                    'name' => $orders->name ?? '',
+                    'number' => $orders->number ?? '',
+                    'email' => $orders->email ?? '',
+                    'pay_mode' => $paymode,
+                    'payment_status' => $payment_status,
+                    'address' => $orders->address ?? '',
+                    'state' => $orders->state ?? '',
+                    'district' => $orders->district ?? '',
+                    'city' => $orders->city ?? '',
+                    'pincode' => $orders->pincode ?? '',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+            foreach ($data as $row) {
+                if (!$row->product_id) continue;
+                DB::table('orders_item')->insert([
+                    'supplier_id' => $row->supplier_id,
+                    'order_id' => $order_id,
+                    'product_id' => $row->product_id,
+                    'qty' => $row->qty ?? 0,
+                    'price' => $row->price ?? 0,
+                    'name' => $row->name ?? '',
+                    'description' => $row->description ?? '',
+                    'gst' => $row->gst ?? 0,
+                    'cess_tax' => $row->cess_tax ?? 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+            DB::table('order_estimate')->where('id', $orderId)->update([
+                'order_status' => 'processing',
+                'updated_at' => now(),
+            ]);
             $customerUser = DB::table('customer_users')->where('customer_id', $orderEstimate->customer_id)->first();
             $orderType = "Order Estimate";
             if ($customerUser && $customerUser->email) {

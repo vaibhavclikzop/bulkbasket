@@ -37,7 +37,7 @@
                             <td>{{ $sno++ }}</td>
                             <td>{{ $item->outward_id }}</td>
                             <td>{{ $item->customer_name }}</td>
-                            <td>#{{ $item->order_id }}</td>
+                            <td>{{ $item->e_order_id }}</td>
                             <td>{{ number_format($item->invoice_amount, 2) }}
                             </td>
                             <td>{{ $item->outward_status }}</td>

@@ -1406,7 +1406,7 @@ class Customer extends Controller
         return  redirect()->back()->with("success", "Save Successfully");
     }
 
-    public function expenseCategory(Request $request)
+    public function customerExpenseCategory(Request $request)
     {
         $data =   DB::table("customer_expense_category")->where("customer_id", $request->user['customer_id'])->get();
         return view("customers.customer-expense-category", compact("data"));

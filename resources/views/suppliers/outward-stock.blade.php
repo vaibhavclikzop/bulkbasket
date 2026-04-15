@@ -118,7 +118,7 @@
                 let html = '<option value="">Select Order</option>';
 
                 res.forEach(r => {
-                    html += `<option value="${r.id}">#${r.id}</option>`;
+                    html += `<option value="${r.id}">${r.e_order_id}</option>`;
                 });
 
                 $("#order_id").html(html);

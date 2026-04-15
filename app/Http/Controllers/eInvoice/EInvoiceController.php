@@ -7,6 +7,7 @@ use App\Services\EInvoiceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
 
 class EInvoiceController extends Controller
 {
@@ -116,22 +117,24 @@ class EInvoiceController extends Controller
                         $igst = round(($taxable * $gst) / 100, 2);
                     }
 
+                    if (!$hsn || strlen($hsn) < 4 || $qty <= 0 || $price <= 0) {
+                        continue;
+                    }
+
+                    $taxable = round($qty * $price, 2);
+
                     $itemList[] = [
-                        "productName"   => $productName,
-                        "hsnCode"       => $hsn,
-                        "quantity"      => $qty,
-                        "qtyUnit"       => $product_unit,
-                        "taxableAmount" => $taxable,
-
-                        "cgstRate"      => $stateCode == "03" ? (int)($gst / 2) : 0,
-                        "sgstRate"      => $stateCode == "03" ? (int)($gst / 2) : 0,
-                        "igstRate"      => $stateCode != "03" ? (int)$gst : 0,
-
-                        "cgstAmount"    => $cgst,
-                        "sgstAmount"    => $sgst,
-                        "igstAmount"    => $igst,
-                        "cessRate"      => 0,
-                        "cessAmount"    => 0
+                        "product_name"   => trim($product->product_name),
+                        "product_description" => trim($product->product_name),
+                        "hsn_code"       => $hsn,
+                        "quantity"       => $qty,
+                        "unit_of_product" => $product->p_unit ?? "NOS",
+                        "igst_rate" => 0,
+                        "cgst_rate" => $gst / 2,
+                        "sgst_rate" => $gst / 2,
+                        "cess_rate"      => 0,
+                        "cessNonAdvol"   => 0,
+                        "taxable_amount" => $taxable
                     ];
                 }
             }
@@ -139,30 +142,37 @@ class EInvoiceController extends Controller
                 dd("ItemList empty", $products);
             }
             $payload = [
-                "Irn" => $invoice->Irn,
-
+                "access_token" => $token,
+                "userGstin" => "05AAABC0181E1ZE",
                 "supply_type" => "outward",
-                "document_type" => "tax invoice",
-                "sub_supply_type" => "Others",
-                "document_number" => $invoice->invoice_id,
-                "document_date" => now()->format('d/m/Y'), 
-                "gstin_of_consignor" => "05AAAAZ2166M1Z7",
-                "pincode_of_consignor" => "248001",
-                "state_of_consignor" => "05",    
+                "sub_supply_type" => "Supply",
+                "sub_supply_description" => "Sales",
 
-                "gstin_of_consignee" => $invoice->gst,
-                "pincode_of_consignee" => "110001",
-                "state_of_supply" => "02",      
+                "document_type" => "Tax Invoice",
+                "document_number" => substr($invoice->invoice_id, 0, 16),
+                "document_date" => now()->format('d/m/Y'),
 
-                "itemList" => $itemList,
+                "gstin_of_consignor" => "05AAABC0181E1ZE",
+                "gstin_of_consignee" => "05AAABB0639G1Z8",
 
-                "transporter_id" => "05AAABC0181E1ZE",
-                "transporter_name" => "ABC Logistics",
-                "transportation_mode" => "road",  
-                "transportation_distance" => "100",
+                // ✅ STATE FIX
+                "state_of_consignor" => "UTTARAKHAND",
+                "state_of_supply" => "UTTARAKHAND",
 
-                "vehicle_number" => "UK07AB1234",  
-                "vehicle_type" => "Regular"       
+                "actual_from_state_name" => "UTTARAKHAND",
+                "actual_to_state_name"   => "UTTARAKHAND",
+
+                "pincode_of_consignor" => 248001,
+                "pincode_of_consignee" => 248002,
+                "transaction_type" => 1,
+                "transportation_mode" => "road",
+                "transportation_distance" => "10",
+
+                // "vehicle_number" => "UK07AB1234",
+                "vehicle_number" => $invoice->vehicle_number,
+                "vehicle_type" => "Regular",
+
+                "itemList" => $itemList
             ];
             // dd(json_encode($payload, JSON_PRETTY_PRINT));
             $response = Http::withHeaders([
@@ -173,34 +183,44 @@ class EInvoiceController extends Controller
                 $payload
             );
             $data = $response->json();
-            $isSuccess =
-                ($data['success'] ?? null) === true ||
-                ($data['status'] ?? null) === 'Success' ||
-                ($data['results']['status'] ?? null) === 'Success';
-            if (!$isSuccess) {
-                $msg =
-                    $data['data']['message'] ??
-                    $data['message'] ??
-                    $data['error']['errorMessage'] ??
-                    $data['results']['errorMessage'] ??
-                    'E-Way Bill failed';
+            $eway = $data['results']['message'] ?? [];
+            if (empty($eway['ewayBillNo'])) {
                 return response()->json([
                     'status' => false,
-                    'message' => $msg,
+                    'message' => $data['message'] ?? 'E-Way Bill failed',
                     'error' => $data
                 ]);
             }
+            $ewayBillDate = null;
+            $validUpto = null;
+
+            if (!empty($eway['ewayBillDate'])) {
+                $ewayBillDate = Carbon::createFromFormat(
+                    'd/m/Y h:i:s A',
+                    $eway['ewayBillDate']
+                )->format('Y-m-d H:i:s');
+            }
+
+            if (!empty($eway['validUpto'])) {
+                $validUpto = Carbon::createFromFormat(
+                    'd/m/Y h:i:s A',
+                    $eway['validUpto']
+                )->format('Y-m-d H:i:s');
+            }
             DB::table('stock_outward_mst')
-                ->where('invoice_id', $request->invoice_id)
+                ->where('id', $request->invoice_id)
                 ->update([
-                    'eway_bill_no' => $data['results']['eway_bill_no'] ?? null,
-                    'eway_bill_date' => $data['results']['eway_bill_date'] ?? null,
-                    'eway_valid_upto' => $data['results']['valid_upto'] ?? null,
+                    "is_e_billing" => 1,
+                    "eway_bill_no" => $eway['ewayBillNo'] ?? null,
+                    "eway_bill_date" => $ewayBillDate ?? null,
+                    "eway_valid_upto" => $validUpto ?? null,
+                    "eway_bill_url" => $eway['url'] ?? null,
                 ]);
+
             return response()->json([
                 'status' => true,
-                'message' => 'E-Way Bill generated successfully',
-                'data' => $data
+                'message' => 'E-Way Bill processed successfully',
+                'data' => $data,
             ]);
         } catch (\Throwable $th) {
             return response()->json([

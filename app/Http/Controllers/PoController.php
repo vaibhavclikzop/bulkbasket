@@ -1215,6 +1215,7 @@ class PoController extends Controller
                 "a.product_id",
                 "b.name as product",
                 "b.article_no",
+                "b.hsn_code",
                 "c.name as warehouse",
                 "d.location_code",
                 DB::raw("SUM(a.stock) as total_stock")
@@ -1223,7 +1224,7 @@ class PoController extends Controller
             ->leftJoin("warehouse as c", "a.warehouse_id", "=", "c.id")
             ->leftJoin("warehouse_location as d", "a.location_id", "=", "d.id")
             ->where("b.supplier_id", $request->user['supplier_id'])
-            ->groupBy("a.id", "a.product_id", "a.warehouse_id", "b.name", "b.article_no", "c.name", "d.location_code")
+            ->groupBy("a.id", "a.product_id", "a.warehouse_id", "b.name", "b.article_no","b.hsn_code", "c.name", "d.location_code")
             ->orderBy("c.name")
             ->get();
         return view("suppliers.current-stock", compact("current_stock"));
