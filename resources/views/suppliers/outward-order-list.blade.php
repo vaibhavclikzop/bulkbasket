@@ -42,7 +42,8 @@
                             </td>
                             <td>{{ $item->outward_status }}</td>
                             <td>
-                                @if ($item->is_invoice == 0 && $item->status == 'pending')
+                                {{-- @if ($item->is_invoice == 0 && $item->status == 'pending') --}}
+                                @if ($item->is_invoice == 0 && $item->outward_status == 'pending')
                                     <button class="btn btn-danger btn-sm cancelOrder" type="button"
                                         value="{{ $item->id }}" data-bs-toggle="tooltip" data-bs-placement="top"
                                         title="Cancel this ticket">

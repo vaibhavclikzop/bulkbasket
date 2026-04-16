@@ -57,20 +57,20 @@
         <section class="login-content overflow-hidden">
             <div class="row no-gutters align-items-center bg-white">
                 <div class="col-md-12 col-lg-6 align-self-center">
-                    <a href="../../dashboard/index.html"
+                    <a href="#"
                         class="navbar-brand d-flex align-items-center mb-3 justify-content-center text-primary">
-                        <div class="logo-normal">
-                            <img src="/logo/{{ $setting->img }}" alt="" width="180">
+                        <div class="logo-normal text-center">
+                            <img src="/logo/{{ $setting->img }}" alt="" width="80%" >
                         </div>
                      
                         {{-- <h2 class="logo-title ms-3 mb-0">{{ $setting->company_name }} </h2> --}}
                     </a>
-                    <div class="row justify-content-center pt-5">
+                    <div class="row justify-content-center ">
                         <div class="col-md-9">
                             <div class="card  d-flex justify-content-center mb-0 auth-card iq-auth-form">
                                 <div class="card-body">
-                                    <h2 class="mb-2 text-center">Sign In</h2>
-                                    <p class="text-center">Login to stay connected. </p>
+                                    <h2 class="mb-2 text-center">Welcome Back 👋</h2>
+                                    <p class="text-center">Sign in to access your dashboard and manage your business.</p>
                                     <form method="POST" action="{{ route('SaveSupplierLogin') }}">
                                         @csrf
                                         <div class="row">
@@ -92,7 +92,7 @@
                                                 <div class="form-check mb-3">
                                                
                                                 </div>
-                                                <a href="">Forgot Password?</a>
+                                                <a href="#">Forgot Password?</a>
                                             </div>
                                         </div>
                                         <div class="d-flex justify-content-center">
@@ -120,7 +120,7 @@
                                             </ul>
                                         </div>
                                         <p class="mt-3 text-center">
-                                            Don’t have an account? <a href="sign-up.html" class="text-underline">Click
+                                            Don’t have an account? <a href="#" class="text-underline">Click
                                                 here to sign up.</a>
                                         </p>
                                     </form>
@@ -130,7 +130,7 @@
                     </div>
                 </div>
                 <div class="col-lg-6 d-lg-block d-none bg-primary p-0  overflow-hidden">
-                    <img src="/backend/images/01.png" class="img-fluid gradient-main" alt="images" loading="lazy">
+                    <img src="/backend/images/login-side.png" class="img-fluid gradient-main" alt="images" loading="lazy">
                 </div>
             </div>
         </section>

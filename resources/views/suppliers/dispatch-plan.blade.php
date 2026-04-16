@@ -21,7 +21,7 @@
                         <th>S.No</th>
                         {{-- <th>Invoice No </th> --}}
                         <th>PT ID</th>
-                         <th>Order ID</th>
+                        <th>Order ID</th>
                         <th>Customer</th>
                         <th>Invoice Amt.</th>
                         <th>Driver Name</th>
@@ -43,9 +43,9 @@
                             <td>{{ $item->order_id }}</td>
                             <td>{{ $item->customer_name }}</td>
                             <td>{{ round($item->total_amount) }}.00</td>
-                             <td>{{ $item->driver_name ?? "N/A"}}</td>
-                             <td>{{ $item->driver_no ?? "N/A"}}</td>
-                             <td>{{ $item->vehicle_number ?? "N/A"}}</td>
+                            <td>{{ $item->driver_name ?? 'N/A' }}</td>
+                            <td>{{ $item->driver_no ?? 'N/A' }}</td>
+                            <td>{{ $item->vehicle_number ?? 'N/A' }}</td>
                             <td>{{ ucfirst($item->status) }}</td>
                             <td>
                                 <a class="btn btn-info btn-sm" title="View Invoice"
@@ -62,15 +62,15 @@
                                     </button>
                                 @endif
 
-                                @if ($item->status == 'dispatch' && $item->is_e_billing==0)
+                                @if ($item->status == 'dispatch' && $item->is_e_billing == 0)
                                     <button class="btn btn-info btn-sm sendEBilling" value="{{ $item->id }}"
                                         data-bs-toggle="tooltip" data-bs-placement="top" title="Convert  E-Billing">
                                         <i class="fa-solid fa-file"></i>
                                     </button>
                                 @endif
                                 @if ((int) $item->is_e_billing === 1 && (int) $item->is_e_invoice === 1 && !empty($item->eway_bill_url))
-                                    <a class="btn btn-success btn-sm" title="View E-Billing"
-                                        href="{{ $item->eway_bill_url }}" target="_blank">E-Billing</a>
+                                    <a href="https://{{ $item->eway_bill_url }}" class="btn btn-success btn-sm"
+                                        title="View E-Billing" target="_blank">E-Billing</a>
                                 @endif
 
                             </td>

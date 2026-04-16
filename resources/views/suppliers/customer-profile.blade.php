@@ -489,7 +489,7 @@
 
                                             </th>
                                         </tr>
-                                    </tbody> 
+                                    </tbody>
                                 </table>
                             </div>
                         </div>
@@ -497,36 +497,26 @@
                         <div class="tab-pane fade" id="pills-wallet" role="tabpanel" aria-labelledby="pills-contact-tab"
                             tabindex="0">
                             <div class="container ">
-                                <form action="{{ route('supplier/UploadWallet') }}" method="POST"
-                                    class="needs-validation" novalidate>
-                                    @csrf
+                                <form action="#" method="#" class="needs-validation" novalidate>
                                     <input type="hidden" name="id" value="{{ $data->id }}">
                                     <div class="row">
                                         <div class="col-md-5">
-                                            @php
-                                                $wallet = $data->wallet ?? 0;
-                                                $used = $data->used_wallet ?? 0;
-                                                $total_wallet = $wallet - $used;
-                                            @endphp
                                             <label for="">Credit Limit</label>
-                                            <input type="number" step="0.01" name="wallet" class="form-control"
-                                                value="{{ $total_wallet }}">
+                                            <input type="number" step="0.01" name="wallet" readonly
+                                                class="form-control" value="{{ $data->wallet }}" style="background-color: #d2d2d2">
                                         </div>
                                         <div class="col-md-4">
                                             <label for="">Due Date</label>
-                                            <select name="due_date" class="form-control" required>
-                                                <option value="1" {{ $data->due_date == 1 ? 'selected' : '' }}>1
-                                                </option>
-                                                <option value="7" {{ $data->due_date == 7 ? 'selected' : '' }}>7
-                                                </option>
-                                                <option value="15" {{ $data->due_date == 15 ? 'selected' : '' }}>15
-                                                </option>
-                                                <option value="30" {{ $data->due_date == 30 ? 'selected' : '' }}>30
-                                                </option>
-                                            </select>
+                                            <input type="number" name="due_date" readonly class="form-control"
+                                                value="{{ $data->due_date }}" style="background-color: #d2d2d2">
                                         </div>
                                         <div class="col-md-3   mt-4">
-                                            <button class="btn btn-primary" type="submit">Add Limit</button>
+                                            <button class="btn btn-primary btn-sm setLimit" data-id="{{ $data->id }}"
+                                                type="button">Set Limit</button>
+                                            <button class="btn btn-info btn-sm showHistory" data-id="{{ $data->id }}"
+                                                type="button">
+                                                Credit History
+                                            </button>
                                         </div>
                                         <div class="card">
                                             <div class="card-header">
@@ -600,7 +590,6 @@
                                             </div>
 
                                         </div>
-
                                     </div>
                                 </form>
                             </div>
@@ -715,6 +704,74 @@
         </div>
     </form>
 
+    <form action="{{ route('supplier/UploadWallet') }}" method="POST" class="needs-validation" novalidate>
+        @csrf
+        <div class="modal fade" id="setLimitModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+            role="dialog" aria-labelledby="modalTitleId" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitleId">
+                            Set Credit Limit
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <input type="hidden" name="customer_id" value="{{ $data->id }}">
+                            <div class="col-md-12">
+                                <label for="">Credit Limit</label>
+                                <input type="number" step="0.01" class="form-control" required name="wallet">
+                            </div>
+
+                            <div class="col-md-12 mt-3">
+                                <label for="">Due Date</label>
+                                <select name="due_date" class="form-control" required>
+                                    <option value="1" {{ $data->due_date == 1 ? 'selected' : '' }}>1
+                                    </option>
+                                    <option value="7" {{ $data->due_date == 7 ? 'selected' : '' }}>7
+                                    </option>
+                                    <option value="15" {{ $data->due_date == 15 ? 'selected' : '' }}>15
+                                    </option>
+                                    <option value="30" {{ $data->due_date == 30 ? 'selected' : '' }}>30
+                                    </option>
+                                </select>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Close
+                        </button>
+                        <button type="submit" class="btn btn-primary">Save Limit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="modal fade" id="showHistoryModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+        role="dialog" aria-labelledby="modalTitleId" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitleId">
+                        Credit Limit History
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 
     <form action="{{ route('supplier/AddWalletLedger') }}" method="POST" class="needs-validation" novalidate>
@@ -801,6 +858,54 @@
             </div>
         </div>
     </form>
+
+    <script>
+        $(document).on("click", ".setLimit", function() {
+            $("#setLimitModal").modal("show")
+        });
+
+        $(document).on("click", ".showHistory", function() {
+            let customer_id = $(this).data("id");
+
+            $.ajax({
+                url: "/supplier/get-wallet-history/" + customer_id,
+                type: "GET",
+                success: function(res) {
+
+                    let html = "";
+
+                    if (res.length > 0) {
+                        html += `<table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Credit Limit</th>
+                                    <th>Due Days</th>
+                                    <th>Grace Days</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                        res.forEach(function(item) {
+                            html += `<tr>
+                                <td>${item.formatted_date ?? '-'}</td>
+                                <td>${item.amount}</td>
+                                <td>${item.due_date}</td>
+                                <td>${item.grace_days}</td>
+                            </tr>`;
+                        });
+
+                        html += `</tbody></table>`;
+                    } else {
+                        html = `<p class="text-center">No history found</p>`;
+                    }
+
+                    $("#showHistoryModal .modal-body").html(html);
+                    $("#showHistoryModal").modal("show");
+                }
+            });
+        });
+    </script>
 
 
     <script>

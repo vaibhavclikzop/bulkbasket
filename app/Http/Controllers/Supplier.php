@@ -226,7 +226,6 @@ class Supplier extends Controller
                 "pincode" => $request->pincode,
                 "password" => $request->password,
             ));
-
         } catch (Exception $e) {
 
             return redirect()->back()->with('error', $e->getMessage());
@@ -241,32 +240,6 @@ class Supplier extends Controller
         $data = DB::table("customers")->where("id", $id)->first();
         $user = DB::table("customer_users")->where("customer_id", $id)->first();
         $documents = DB::table("customer_document")->where("customer_id", $id)->get();
-
-        // $wallet_statement = DB::table(DB::raw("(
-        //     SELECT id, created_at, amount, 'credit' as type, invoice_no, 'Sale (GST)' as particular, pay_date,pay_mode,remarks
-        //     FROM wallet_ledger
-        //     WHERE customer_id = $id
-
-        //     UNION ALL 
-
-        //     SELECT id, created_at, total_amount as amount, 'debit' as type, invoice_no, 'Payment' as particular, created_at as pay_date,pay_mode, 'Order Generated' as remarks
-        //     FROM orders
-        //     WHERE customer_id = $id AND pay_mode = 'wallet'
-        // ) as wallet_union"))
-        //     ->orderBy('created_at', 'asc')
-        //     ->get();
-
-
-        // $balance = 0;
-        // foreach ($wallet_statement as $entry) {
-        //     if ($entry->type === 'credit') {
-        //         $balance += $entry->amount;
-        //     } else if ($entry->type === 'debit') {
-        //         $balance -= $entry->amount;
-        //     }
-        //     $entry->balance = -$balance;
-        // }
-
         $wallet_statement = DB::table(DB::raw("(
         -- 💰 Wallet Ledger (Credit)
         SELECT 
@@ -361,9 +334,7 @@ class Supplier extends Controller
         ) as wallet_union"))
             ->orderBy('created_at', 'asc')
             ->get();
-
         $balance = 0;
-
         foreach ($wallet_statement as $entry) {
             if ($entry->type === 'credit' || $entry->type === 'Interest') {
                 $balance += $entry->amount;
@@ -373,7 +344,6 @@ class Supplier extends Controller
             $entry->balance = $balance;
         }
         $wallet_statement = $wallet_statement->reverse()->values();
-
         $extra_charge = DB::table(DB::raw("(
         SELECT id, created_at, amount, remarks
         FROM extracharge
@@ -541,7 +511,6 @@ class Supplier extends Controller
     public function UploadWallet(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id' => 'required',
             'wallet' => 'required',
             'due_date' => 'required',
         ]);
@@ -568,27 +537,41 @@ class Supplier extends Controller
             $today = Carbon::now();
             $dueDate = $today->copy()->addDays($grace_days);
             $graceEndDate = now()->addDays($request->due_date + $grace_days);
-            DB::table('customers')->where('id', $request->id)->update([
-                'wallet' => $request->wallet,
+            DB::table('wallet_ledger_history')->insert([
+                'customer_id' => $request->customer_id,
+                'amount' => $request->wallet,
+                "due_date" => $request->due_date,
+                'grace_days' => $grace_days,
+                'supplier_id' => $request->user['supplier_id'],
+                'updated_at' => now(),
+            ]);
+            $totalWallet = DB::table('wallet_ledger_history')
+                ->where('customer_id', $request->customer_id)
+                ->sum('amount');
+            DB::table('customers')->where('id', $request->customer_id)->update(array(
+                'wallet' => $totalWallet,
                 "due_date" => $request->due_date,
                 'grace_days' => $grace_days,
                 'wallet_assigned_at' => now(),
-                'updated_at' => now(),
-            ]);
-            // $invoice_no = 'VOU-' . $request->id . date('YmdHis');
-            // DB::table('wallet_ledger')->insert(array(
-            //     'customer_id' => $request->id,
-            //     'amount' => $request->wallet,
-            //     'pay_mode' => 'Credit_Limit',
-            //     'pay_date' => now(),
-            //     'supplier_id' => $request->user['supplier_id'],
-            //     'invoice_no' => $invoice_no,
-            //     'remarks' => "Due: {$request->due_date} days | Grace: {$grace_days} days | 18% interest after grace period",
-            // ));
+            ));
         } catch (Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
         return redirect()->back()->with("success", "Wallet updated successfully with grace period and interest rules applied.");
+    }
+
+    public function getWalletHistory($id)
+    {
+        $history = DB::table('wallet_ledger_history')
+            ->where('customer_id', $id)
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function ($item) {
+                $item->formatted_date = \Carbon\Carbon::parse($item->updated_at)
+                    ->format('d-m-Y H:i:s');
+                return $item;
+            });
+        return response()->json($history);
     }
 
 
@@ -1261,7 +1244,6 @@ class Supplier extends Controller
                 "remarks" => $request->remarks
             ));
             DB::table("customers")->where("id", $request->customer_id)->decrement("used_wallet", $request->amount);
-
             $ledgerAmount = $request->amount;
             if ($ledgerAmount > 0) {
                 $orders = DB::table('orders')
@@ -1626,7 +1608,7 @@ class Supplier extends Controller
                 $totalAmount += $itemTotal + $taxTotal;
             }
             $customer = DB::table('customers')->where('id', $orders->customer_id)->first();
-            $paymode=$orders->pay_mode;
+            $paymode = $orders->pay_mode;
             $interestAmount = 0;
             if ($paymode == 'wallet' && $customer) {
                 $holdAmount = $customer->hold_amount ?? 0;

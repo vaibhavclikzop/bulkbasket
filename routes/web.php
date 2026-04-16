@@ -209,6 +209,7 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('supplier/UploadDocument', [Supplier::class, 'UploadDocument'])->name('supplier/UploadDocument');
     Route::post('supplier/UploadAgreement', [Supplier::class, 'UploadAgreement'])->name('supplier/UploadAgreement');
     Route::post('supplier/UploadWallet', [Supplier::class, 'UploadWallet'])->name('supplier/UploadWallet');
+    Route::get('supplier/get-wallet-history/{id}', [Supplier::class, 'getWalletHistory']);
     Route::post('supplier/GetProductPrices', [Supplier::class, 'GetProductPrices'])->name('supplier/GetProductPrices');
     Route::post('supplier/DeleteProductPrice', [Supplier::class, 'DeleteProductPrice'])->name('supplier/DeleteProductPrice');
     Route::post('supplier/AddProductPrice', [Supplier::class, 'AddProductPrice'])->name('supplier/AddProductPrice');
