@@ -24,10 +24,13 @@
 
                 <div class="row">
                     <input type="hidden" id="orderID" name="id">
+                    <input type="hidden" name="customer_id" value="{{ request('customer_id') }}">
+                    <input type="hidden" name="order_id" value="{{ request('order_id') }}">
+                    <input type="hidden" name="out_id" value="{{ request('out_id') }}">
 
                     <div class="col-md-3">
                         <label>Customer</label>
-                        <select name="customer_id" id="customer_id" class="form-control" required>
+                        <select name="customer_id" id="customer_id" class="form-control" disabled>
                             <option value="">Select Customer</option>
                             @foreach ($customers as $item)
                                 <option value="{{ $item->id }}">{{ $item->customer_name }}</option>
@@ -37,7 +40,7 @@
 
                     <div class="col-md-3">
                         <label>Order Id</label>
-                        <select name="order_id" id="order_id" class="form-control" required>
+                        <select name="order_id" id="order_id" class="form-control" disabled>
                             <option value="">Select Order</option>
                         </select>
                     </div>
@@ -205,8 +208,18 @@
             let sno = 1;
             product_list = [];
             window.editData.forEach(r => {
+                let stock = Number(r.stock ?? r.current_stock ?? 0);
+                let actual = Number(r.outward_qty ?? r.qty ?? 0);
+                let rowClass = "";
+                if (stock <= 0) {
+                    rowClass = "table-danger";
+                } else if (stock < actual) {
+                    rowClass = "table-warning";
+                } else {
+                    rowClass = "table-success";
+                }
                 html += `
-                <tr class="product${r.product_id}">
+                <tr class="product${r.product_id} ${rowClass}">
                 <td>${sno++}</td>
                 <td>${r.product}</td>
                 <td>${r.article_no}</td>
@@ -219,7 +232,8 @@
                 class="form-control qty"
                 data-product_id="${r.product_id}"
                 data-actual_qty="${r.qty}"
-                data-out_qty="${r.out_qty}"
+                // data-out_qty="${r.out_qty}"
+                data-old_outward_qty="${r.outward_qty}"
                 value="${r.outward_qty}" style="width:70px">
                 </td>
                 <td>  
@@ -238,23 +252,40 @@
             });
             $("#productList").html(html);
         }
+        // $(document).on("keyup change", ".qty", function() {
+        //     let pid = parseInt($(this).data("product_id"))
+        //     let prod = product_list.find(p => p.product_id === pid)
+        //     if (!prod) return
+        //     if ($(this).hasClass("qty")) {
+        //         let qty = parseInt($(this).val()) || 0
+        //         let actual = parseInt($(this).data("actual_qty")) || 0
+        //         let received = parseInt($(this).data("out_qty")) || 0
+        //         // let remaining = actual - received
+        //         remaining = actual - (out_qty - old_outward_qty)
+        //         if (qty > remaining) {
+        //             toastr.error("Qty cannot exceed remaining")
+        //             $(this).val(remaining)
+        //             qty = remaining
+        //         }
+        //         prod.qty = qty
+        //     }
+        // })
         $(document).on("keyup change", ".qty", function() {
-            let pid = parseInt($(this).data("product_id"))
-            let prod = product_list.find(p => p.product_id === pid)
-            if (!prod) return
-            if ($(this).hasClass("qty")) {
-                let qty = parseInt($(this).val()) || 0
-                let actual = parseInt($(this).data("actual_qty")) || 0
-                let received = parseInt($(this).data("out_qty")) || 0
-                let remaining = actual - received
-                if (qty > remaining) {
-                    toastr.error("Qty cannot exceed remaining")
-                    $(this).val(remaining)
-                    qty = remaining
-                }
-                prod.qty = qty
+            let pid = parseInt($(this).data("product_id"));
+            let prod = product_list.find(p => p.product_id === pid);
+            if (!prod) return;
+            let qty = parseInt($(this).val()) || 0;
+            let actual = parseInt($(this).data("actual_qty")) || 0;
+            let out_qty = parseInt($(this).data("out_qty")) || 0;
+            let old_outward = parseInt($(this).data("old_outward_qty")) || 0;
+            let remaining = actual - (out_qty - old_outward);
+            if (qty > remaining) {
+                toastr.error("Qty cannot exceed remaining (" + remaining + ")");
+                $(this).val(remaining);
+                qty = remaining;
             }
-        })
+            prod.qty = qty;
+        });
         $(document).on("click", ".remove", function() {
             let id = parseInt($(this).data("id"))
             $(".product" + id).remove()

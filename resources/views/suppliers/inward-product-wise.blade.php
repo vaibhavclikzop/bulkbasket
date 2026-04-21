@@ -86,7 +86,6 @@
                             <th>R.M Date</th>
 
                             <th>Description</th>
-                            {{-- <th>Created at</th> --}}
                         </tr>
                     </thead>
                     <tbody>

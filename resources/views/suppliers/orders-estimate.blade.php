@@ -53,16 +53,16 @@
                                 @if (strtolower($item->order_status) == 'pending')
                                     <button class="btn btn-primary btn-sm estimate-edit"
                                         data-data='@json(['id' => $item->id, 'order_status' => $item->order_status])'>
-                                        <i class="fa fa-pencil" aria-hidden="true"></i>
+                                        Status
                                     </button>
+                                    <a href="{{ url('/supplier/edit-challan/' . $item->id) }}"
+                                        class="btn btn-info btn-sm">
+                                       <i class="fa fa-pencil" aria-hidden="true"></i>
+                                    </a>
                                     <a href="{{ url('/supplier/order-estimate-details/' . $item->id) }}"
                                         class="btn btn-primary btn-sm">
                                         <i class="fa fa-eye" aria-hidden="true"></i>
                                     </a>
-                                    {{-- <a href="{{ url('/supplier/order-estimate-request-price/' . $item->id) }}"
-                                        class="btn btn-info btn-sm">
-                                        Request For Price
-                                    </a> --}}
                                 @elseif (strtolower($item->order_status) == 'processing')
                                     <a href="{{ url('/supplier/order-estimate-edit/' . $item->id) }}"
                                         class="btn btn-primary btn-sm">

@@ -21,7 +21,7 @@
             <table class="table dataTable">
                 <thead>
                     <tr>
-                       <th>S.no</th>
+                        <th>S.no</th>
                         <th> Name</th>
                         <th> Number</th>
                         <th>Vehicle Name</th>
@@ -40,8 +40,8 @@
                             <td>{{ $item->name }}</td>
                             <td>{{ $item->number }}</td>
                             <td>{{ $item->vehicle_name }}</td>
-                            <td>{{ $item->vehicle_no }}</td> 
-                            <td>{{ $item->user_name }}</td> 
+                            <td>{{ $item->vehicle_no }}</td>
+                            <td>{{ $item->user_name }}</td>
                             <td><button class="btn btn-primary btn-sm edit" type="button"
                                     data-data="{{ @json_encode($item) }}"><i class="fa fa-pencil"
                                         aria-hidden="true"></i></button>
@@ -84,8 +84,14 @@
                                 <input type="" name="vehicle_name" id="vehicle_name" class="form-control" required>
                             </div>
                             <div class="col-md-6 mt-2">
-                                <label for="">Vehicle No.</label>
-                                <input type="" name="vehicle_no" id="vehicle_no" class="form-control" required>
+                                <label for="vehicle_no">
+                                    Vehicle No.
+                                    <span class="text-danger">*</span>
+                                    <small class="text-muted">(Format: UK07AB1234)</small>
+                                </label>
+
+                                <input type="text" name="vehicle_no" id="vehicle_no" class="form-control"
+                                    placeholder="e.g. UK07AB1234" required>
                             </div>
 
                             <div class="col-md-6 mt-2">

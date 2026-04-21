@@ -101,36 +101,55 @@ class CustomerProductPrice extends Controller
             'search' => 'required',
             'customer_id' => 'required',
         ]);
-
         if ($validator->fails()) {
             return response()->json(["error" => true, "msg" => $validator->errors()->first(), "data" => ""], 400);
         }
-
         try {
             $query = DB::table("products as a")
                 ->select(
                     "a.*",
                     DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
                 FROM current_stock cs
-                WHERE cs.product_id = a.id) as current_stock"),
+                WHERE cs.product_id = a.id) as current_stock")
                 )
-                ->where("a.supplier_id", $request->user["supplier_id"]);
-
-            $words = explode(' ', strtolower($request->search));
-
-            foreach ($words as $word) {
-                $query->whereRaw("LOWER(a.name) LIKE ?", ["%$word%"]);
-            }
+                ->where("a.supplier_id", $request->user["supplier_id"]); 
+            $search = strtolower(str_replace(' ', '', $request->search)); 
+            $query->whereRaw(
+                "REPLACE(LOWER(a.name), ' ', '') LIKE ?",
+                ["%{$search}%"]
+            ); 
+            $query->orderByRaw("
+                CASE 
+                    WHEN REPLACE(LOWER(a.name), ' ', '') = ? THEN 1
+                    WHEN REPLACE(LOWER(a.name), ' ', '') LIKE ? THEN 2
+                    ELSE 3
+                END
+            ", [
+                $search,
+                $search . '%'
+            ]);
 
             $data = $query->get();
 
-            if ($data) {
-                return response()->json(["error" => false, "msg" => "Success", "data" => $data], 200);
+            if ($data->count() > 0) {
+                return response()->json([
+                    "error" => false,
+                    "msg" => "Success",
+                    "data" => $data
+                ], 200);
             } else {
-                return response()->json(["error" => true, "msg" => "No Data Found", "data" => ""], 404);
+                return response()->json([
+                    "error" => true,
+                    "msg" => "No Data Found",
+                    "data" => []
+                ], 404);
             }
         } catch (\Throwable $th) {
-            return response()->json(["error" => true, "msg" => $th->getMessage(), "data" => ""], 400);
+            return response()->json([
+                "error" => true,
+                "msg" => $th->getMessage(),
+                "data" => []
+            ], 400);
         }
     }
 
@@ -152,12 +171,15 @@ class CustomerProductPrice extends Controller
                     $join->on("a.id", "=", "b.product_id")
                         ->where("b.customer_id", "=", $request->customer_id);
                 })
+                ->join('product_uom as pu','a.uom_id','pu.id')
                 ->where("a.supplier_id", $request->user["supplier_id"])
                 ->where("a.id", $request->product_id)
                 ->select(
                     "a.id as product_id",
                     "a.name as name",
                     "a.gst",
+                    "mrp",
+                    "pu.name as unit",
                     "a.cess_tax",
                     DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
                     FROM current_stock cs

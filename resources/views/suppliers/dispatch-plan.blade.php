@@ -55,19 +55,19 @@
                                     data-bs-toggle="tooltip" data-bs-placement="top" title="Order Status">
                                     Order Status
                                 </button>
-                                @if ($item->status == 'pending' && $item->is_e_billing == 0)
+                                {{-- @if ($item->status == 'pending' && $item->is_e_billing == 0) --}}
                                     <button class="btn btn-warning btn-sm dispatchTransport" value="{{ $item->id }}"
                                         data-bs-toggle="tooltip" data-bs-placement="top" title="Allocate Vehicle">
                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
                                     </button>
-                                @endif
+                                {{-- @endif --}}
 
-                                @if ($item->status == 'dispatch' && $item->is_e_billing == 0)
+                                {{-- @if ($item->status == 'dispatch' && $item->is_e_billing == 0) --}}
                                     <button class="btn btn-info btn-sm sendEBilling" value="{{ $item->id }}"
                                         data-bs-toggle="tooltip" data-bs-placement="top" title="Convert  E-Billing">
                                         <i class="fa-solid fa-file"></i>
                                     </button>
-                                @endif
+                                {{-- @endif --}}
                                 @if ((int) $item->is_e_billing === 1 && (int) $item->is_e_invoice === 1 && !empty($item->eway_bill_url))
                                     <a href="https://{{ $item->eway_bill_url }}" class="btn btn-success btn-sm"
                                         title="View E-Billing" target="_blank">E-Billing</a>
@@ -103,7 +103,25 @@
                                         <option value="{{ $item->id }}">{{ $item->name }}/{{ $item->vehicle_no }}
                                         </option>
                                     @endforeach
+                                    <option value="other">Other</option>
                                 </select>
+                            </div>
+                            <div class="col-md-12 mt-3 d-none" id="otherTransportFields">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label>Vehicle Number </label>
+                                        <input type="text" name="vehicle_number" class="form-control"
+                                            placeholder="e.g. UK07AB1234">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label>Driver Name</label>
+                                        <input type="text" name="driver_name" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label>Driver Mobile</label>
+                                        <input type="number" name="driver_no" class="form-control">
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label for="">Select Date</label>
@@ -239,6 +257,9 @@
 
                         $("#eBillingModal").modal("hide");
                         confirmBtn.prop("disabled", false).text("Save");
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
                         if (selectedBtns) {
                             selectedBtns
                                 .prop("disabled", true)
@@ -255,7 +276,6 @@
                             "Error";
 
                         toastr.error(msg);
-
                         confirmBtn.prop("disabled", false).text("Save");
                     }
                 },
@@ -279,6 +299,17 @@
         $(document).on("click", ".orderStatus", function() {
             $("#order_id").val($(this).val())
             $("#orderStatusModal").modal("show");
+        });
+    </script>
+    <script>
+        $("#transport_id").on("change", function() {
+
+            if ($(this).val() === "other") {
+                $("#otherTransportFields").removeClass("d-none");
+            } else {
+                $("#otherTransportFields").addClass("d-none");
+            }
+
         });
     </script>
 @endsection

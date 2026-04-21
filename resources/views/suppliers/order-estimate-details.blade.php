@@ -20,66 +20,18 @@
             </div>
         </div>
         <div class="card-body" id="PrintOrder">
-
-            <div>
-                <div class="text-center">
-                    <span class="float-end"> ORIGINAL FOR BUYER</span>
+            <div style="justify-content: space-between; border: solid 1px;margin-top:5px">
+                <div style="text-align: center">
+                    <h4 class="mt-4" style="font-size: 28px; font-weight: bolder"> {{$setting->company_name ?? "Bulk Basket India"}} </h4>
+                    <p style="font-size: 14px">
+                        {!! $setting->address ?? "SCF 179 sector 26 grain market" !!}
+                        <br>
+                        <span style="text-transform: none"> Phone : {{ $setting->number ?? "9876521909" }}
+                            E-Mail : {{ $setting->email ?? "bulkbasketindia@gmail.com" }} </span>
+                            <br>
+                             GST : {{ $data->gst ?? "04AHFPK8992H1ZZ" }} <br>
+                    </p>
                 </div>
-                <div class="text-center mt-3">
-                    <h4>{{ $setting->company_name }}</h4>
-                    <h4>{{ $setting->address }}</h4>
-                </div>
-
-
-            </div>
-            <div style="display: flex; justify-content: space-between; border: solid 1px; padding: 8px;">
-                <div style="border: solid 1px">
-                    <div>
-                        <div class="text-center">
-                            <img src="/logo/{{ $setting->img }}" width="180px">
-                        </div>
-                    </div>
-
-                </div>
-                <div style="border: solid 1px; width: 30%; padding: 5px">
-                    <div>
-                        {{-- IRN : {{ $orders->invoice_no }} --}}
-                        IRN :
-                    </div>
-                    <div>
-                        ACK No. <br>
-                        ACK Dt.
-                    </div>
-                    <div>
-                        Ewb No. <br>
-                        Ewb Dt.
-                    </div>
-
-                </div>
-                <div style="width: 30%;">
-                    <div>
-
-                    </div>
-
-                </div>
-            </div>
-            <div style="display: flex; justify-content: space-between; border: solid 1px;margin-top:5px">
-                <div style="padding: 5px; border:solid 1px; width: 50%">
-
-                </div>
-                <div style="padding: 5px; border:solid 1px;width: 50%">
-                    Invoice No : <br>
-                    Invoice Date : <br>
-                    Email : {{ $setting->email }} <br>
-                    Contact No : {{ $setting->number }}
-                </div>
-                <div style="padding: 5px; border:solid 1px;width: 50%">
-                    {{-- Mode of Transport: {{ $order_mst->mot }} <br>
-                    Vehicle No : {{ $order_mst->vehicle_no }} <br>
-                    Supply Date : {{ $order_mst->invoice_date }} <br>
-                    Place of Supply : CHANDIGARH --}}
-                </div>
-
             </div>
             <div style="display: flex; justify-content: space-between; border: solid 1px; padding: 8px;">
                 <div style="padding: 5px; border:solid 1px; width: 50%">
@@ -89,6 +41,7 @@
                         Address : {{ $orders->customer_address }}, {{ $orders->customer_district }},
                         {{ $orders->customer_city }}, {{ $orders->customer_state }},
                         {{ $orders->customer_pincode }} <br>
+                      GST :  {{ $orders->gst ?? "N/A" }}  
                     </p>
                 </div>
                 <div style="padding: 5px; border:solid 1px; width: 50%">

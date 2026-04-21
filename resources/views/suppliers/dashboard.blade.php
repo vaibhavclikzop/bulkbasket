@@ -169,7 +169,7 @@
                                     <th>S.No</th>
                                     <th>Customer Name</th>
                                     <th>Customer Number</th>
-                                    <th>Invocie Id</th>
+                                    {{-- <th>Invocie Id</th> --}}
                                     <th>Payment Status</th>
                                     <th>Total Amount</th>
                                     <th>Status</th>
@@ -182,7 +182,7 @@
                                         <td>{{ $sno++ }}</td>
                                         <td>{{ $item->name }}</td>
                                         <td>{{ $item->number }}</td>
-                                        <td>{{ $item->invoice_no ?? '--' }}</td>
+                                        {{-- <td>{{ $item->invoice_no ?? '--' }}</td> --}}
                                         <td>{{ $item->payment_status }}</td>
                                         <td>{{ number_format($item->total_amount ?? 0, 2) }}</td>
                                         <td>{{ $item->order_status }}</td>

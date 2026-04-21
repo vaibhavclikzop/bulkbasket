@@ -34,7 +34,7 @@
                     <tr>
                         <th>S.No</th>
                         <th>Order ID</th>
-                        <th>Invocie No</th>
+                        {{-- <th>Invocie No</th> --}}
                         <th>Order Date</th>
                         <th>Name</th>
                         {{-- <th>Email</th> --}}
@@ -54,9 +54,9 @@
                             <td>{{ $sno++ }}</td>
                             <td>{{ $item->e_order_id }}</td>
                             {{-- <td>{{ $item->order_status === 'dispatch' ? $item->invoice_no : '-' }}</td> --}}
-                            <td>{{ $item->invoice_no }}</td>
+                            {{-- <td>{{ $item->invoice_no }}</td> --}}
                             <td>{{ \Carbon\Carbon::parse($item->created_at)->format('d M \a\t g:i A') }}</td>
-                            <td>{{ $item->customer_name }}</td>
+                            <td>{{ ucfirst($item->customer_name) }}</td>
                             {{-- <td>{{ $item->customer_email }}</td> --}}
                             <td>{{ $item->customer_phone }}</td>
                             <td>{{ $item->total_amount }}</td>
@@ -68,8 +68,7 @@
                                         class="fa fa-pencil" aria-hidden="true"></i>
                                 </button> --}}
                                 @if ($item->status == 'processing')
-                                    <a href="/supplier/order-details/{{ $item->estimate_id }}"
-                                        class="btn btn-primary btn-sm">
+                                    <a href="/supplier/order-details/{{ $item->estimate_id }}" class="btn btn-primary btn-sm">
                                         <i class="fa fa-eye" aria-hidden="true"></i> </a>
                                     <a href="/supplier/outward-stock?customer_id={{ $item->customer_id }}&order_id={{ $item->id }}"
                                         class="btn btn-primary btn-sm">
@@ -82,6 +81,10 @@
                                     <a href="/supplier/outward-stock?customer_id={{ $item->customer_id }}&order_id={{ $item->id }}"
                                         class="btn btn-primary btn-sm">
                                         Rise Pick Ticket</a>
+                                    <button class="btn btn-info btn-sm editStatus" type="button"
+                                        value="{{ $item->id }}" data-status="{{ $item->status }}"> <i
+                                            class="fa fa-box" aria-hidden="true"></i>
+                                    </button>
                                 @endif
                                 {{-- @if ($item->status == 'processing')
                                     <a href="/supplier/order-details/{{ $item->estimate_id }}"
@@ -114,29 +117,16 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="modalTitleId">
-                            Update Status
+                            Complete Order
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="id" id="statusId">
-                        <label for="">Select Status</label>
-                        <select name="status" id="status" class="form-control" required>
-                            <option value="">Select</option>
-                            {{-- <option value="pending">Pending</option>
-                            <option value="processing">Processing</option> --}}
-                            <option value="packed">Packed</option>
-                            <option value="dispatch">Dispatch</option>
-                            <option value="delivered">Delivered</option>
-
-                        </select>
-                        <label for="" class="mt-3">User </label>
-                        <select name="user_id" id="" class="form-control" required>
-                            <option value="">Select User</option>
-                            @foreach ($suppliers as $item)
-                                <option value="{{ $item->id }}">{{ $item->name }}</option>
-                            @endforeach
-                        </select>
+                        <input type="hidden" name="status" id="status" value="complete">
+                        <p class="text-center">
+                            Are you sure you want to mark this order as <strong>completed</strong>?
+                        </p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -147,10 +137,7 @@
                 </div>
             </div>
         </div>
-
     </form>
-
-
 
     <script>
         $(document).on("click", ".editStatus", function() {

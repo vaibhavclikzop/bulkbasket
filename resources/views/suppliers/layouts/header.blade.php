@@ -587,7 +587,7 @@
                          </a>
                          <ul class="sub-nav collapse" id="order-mgmte" data-bs-parent="#sidebar-menu">
                             <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/create-estimate">
+                                 <a class="nav-link  {{ request()->is('supplier/create-estimate') ? 'active' : '' }}" href="/supplier/create-estimate">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -603,7 +603,7 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/orders-estimate/pending">
+                                 <a class="nav-link  {{ request()->is('supplier/orders-estimate/pending') ? 'active' : '' }} " href="/supplier/orders-estimate/pending">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -619,7 +619,7 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/orders?status=processing">
+                                 <a class="nav-link {{ request()->is('supplier/orders') && request('status') == 'processing' ? 'active' : ''}}" href="/supplier/orders?status=processing">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -635,7 +635,7 @@
                                  </a>
                              </li>
                               <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/orders?status=pending">
+                                 <a class="nav-link {{ request()->is('supplier/orders') && request('status') == 'pending' ? 'active' : '' }}" href="/supplier/orders?status=pending">
                                      <i class="icon svg-icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -650,8 +650,9 @@
                                      <span class="item-name">Pending Order </span>
                                  </a>
                              </li>
+                              
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/orders?status=complete">
+                                 <a class="nav-link {{ request()->is('supplier/orders') && request('status') == 'complete' ? 'active' : '' }}" href="/supplier/orders?status=complete">
                                      <i class="icon svg-icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -667,9 +668,27 @@
                                  </a>
                              </li>
                             
-                             <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/outward-order-list?status=pending">
-                                     <i class="icon svg-icon">
+                             
+                         </ul>
+                     </li>
+
+                     <li class="nav-item">
+                         <a class="nav-link" data-bs-toggle="collapse" href="#order-mgmtes" role="button"
+                             aria-expanded="false" aria-controls="horizontal-menu">
+                             <i class="fa fa-inr" aria-hidden="true"></i>
+                             <span class="item-name">Invoice Management </span>
+                             <i class="right-icon">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" class="icon-18"
+                                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                         d="M9 5l7 7-7 7"></path>
+                                 </svg>
+                             </i>
+                         </a>
+                         <ul class="sub-nav collapse" id="order-mgmtes" data-bs-parent="#sidebar-menu">
+                            <li class="nav-item">
+                                    <a class="nav-link {{ request()->is('supplier/outward-order-list') && request('status') == 'pending' ? 'active' : '' }}" href="/supplier/outward-order-list?status=pending">
+                                     <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
                                              <g>
@@ -678,13 +697,39 @@
                                              </g>
                                          </svg>
                                      </i>
-                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="complete Order"
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="Create Challan"
                                          data-bs-placement="right"> Order Management </i>
                                      <span class="item-name">View Pick Ticket </span>
                                  </a>
                              </li>
+                             <li class="nav-item">
+                                 <a class="nav-link  {{ request()->is('supplier/invoices') ? 'active' : '' }} " href="/supplier/invoices">
+                                     <i class="icon">
+                                         <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
+                                             xmlns="http://www.w3.org/2000/svg">
+                                             <g>
+                                                 <circle cx="12" cy="12" r="8" fill="currentColor">
+                                                 </circle>
+                                             </g>
+                                         </svg>
+                                     </i>
+                                     <i class="sidenav-mini-icon" data-bs-toggle="tooltip" title="New Challan"
+                                         data-bs-placement="right"> Order Management </i>
+                                     <span class="item-name">Invoices</span>
+                                 </a>
+                             </li>
+                             
+                             
                          </ul>
                      </li>
+                     
+                     
+                     {{-- <li class="nav-item">
+                         <a class="nav-link " aria-current="page" href="/supplier/invoices">
+                             <i class="fa fa-inr" aria-hidden="true"></i>
+                             <span class="item-name">Invoices</span>
+                         </a>
+                     </li> --}}
 
                      <li class="nav-item">
                          <a class="nav-link" data-bs-toggle="collapse" href="#dispatch-mgmt" role="button"
@@ -701,7 +746,7 @@
                          </a>
                          <ul class="sub-nav collapse" id="dispatch-mgmt" data-bs-parent="#sidebar-menu">
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/dispatch-plan/processing">
+                                 <a class="nav-link {{ request()->is('supplier/dispatch-plan/processing') ? 'active' : '' }}" href="/supplier/dispatch-plan/processing">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -733,7 +778,7 @@
                                  </a>
                              </li> --}}
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/outwards/delivered">
+                                 <a class="nav-link {{ request()->is('supplier/outwards/delivered') ? 'active' : '' }}" href="/supplier/outwards/delivered">
                                      <i class="icon svg-icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -749,7 +794,7 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/outwards/cancel">
+                                 <a class="nav-link {{ request()->is('supplier/outwards/cancel') ? 'active' : '' }}" href="/supplier/outwards/cancel">
                                      <i class="icon svg-icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -774,14 +819,6 @@
                          </a>
                      </li>
 
-                     <li class="nav-item">
-                         <a class="nav-link " aria-current="page" href="/supplier/invoices">
-                             <i class="fa fa-inr" aria-hidden="true"></i>
-                             <span class="item-name">Invoices</span>
-                         </a>
-                     </li>
-
-
                      {{-- <li class="nav-item">
                          <a class="nav-link " aria-current="page" href="/supplier/wallet-management">
                              <i class="fa fa-wallet" aria-hidden="true"></i>
@@ -804,7 +841,7 @@
                          </a>
                          <ul class="sub-nav collapse" id="report-stock" data-bs-parent="#sidebar-menu">
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/current-stock">
+                                 <a class="nav-link {{ request()->is('supplier/current-stock') ? 'active' : '' }}" href="/supplier/current-stock">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -974,7 +1011,7 @@
                          </a>
                          <ul class="sub-nav collapse" id="expense" data-bs-parent="#sidebar-menu">
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/expense-category">
+                                 <a class="nav-link {{ request()->is('supplier/expense-category') ? 'active' : '' }}" href="/supplier/expense-category">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -990,7 +1027,7 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/expense-subcategory">
+                                 <a class="nav-link {{ request()->is('supplier/expense-subcategory') ? 'active' : '' }}" href="/supplier/expense-subcategory">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">
@@ -1006,7 +1043,7 @@
                                  </a>
                              </li>
                              <li class="nav-item">
-                                 <a class="nav-link " href="/supplier/expense-list">
+                                 <a class="nav-link {{ request()->is('supplier/expense-list') ? 'active' : '' }}" href="/supplier/expense-list">
                                      <i class="icon">
                                          <svg class="icon-10" width="10" viewBox="0 0 24 24" fill="currentColor"
                                              xmlns="http://www.w3.org/2000/svg">

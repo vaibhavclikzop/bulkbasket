@@ -505,6 +505,7 @@ class mobileAppController extends Controller
                 }
             }
             $products[$key]->details = $details;
+
             if ($category_id) {
                 $cartItem = DB::table("cart")
                     ->where("product_id", $value->id)
@@ -514,11 +515,17 @@ class mobileAppController extends Controller
             } else {
                 $products[$key]->cart_qty = 0;
             }
+            $wishlist = DB::table("wishlist")
+                ->where("product_id", $value->id)
+                ->where("customer_id", $request->customer_id)
+                ->first();
+
+            $products[$key]->wishlist_status = $wishlist ? true : false;
         }
         return response()->json([
             'error' => false,
             'message' => 'Deal of the day products fetched successfully',
-            'dealofdayproduct' => $products
+            'dealofdayproduct' => $products,
         ], 200);
     }
 
@@ -2127,8 +2134,12 @@ class mobileAppController extends Controller
 
             $total_amount = 0;
             $invoice_no = 'INV-' . $request->user['customer_id'] . date('YmdHis');
-
+            $challan_data = DB::table("suppliers")->where('id', 1)->first();
+            $current_order_id = $challan_data->order_id;
+            $next_order_id = $current_order_id + 1;
+            $orders_id = $challan_data->order_series . $next_order_id;
             $order_id = DB::table("order_estimate")->insertGetId([
+                "order_id" => $orders_id,
                 "customer_id" => $request->user['customer_id'],
                 "invoice_no" => $invoice_no,
                 "pay_mode" => $request->pay_mode,
@@ -2210,14 +2221,20 @@ class mobileAppController extends Controller
                 DB::table("customers")
                     ->where("id", $request->user['customer_id'])
                     ->increment("hold_amount", $total_amount);
+
+               
             }
 
             DB::table("cart")
                 ->where("customer_id", $request->user['customer_id'])
                 ->delete();
 
+             DB::table("suppliers")
+                    ->where('id', 1)
+                    ->update([
+                        'order_id' => $next_order_id
+                    ]);
             DB::commit();
-
             return response()->json([
                 'error' => false,
                 'message' => 'Order placed successfully.',
@@ -2300,14 +2317,25 @@ class mobileAppController extends Controller
     //order
     public function getOrder(Request $request)
     {
-
         try {
-            $data = DB::table("orders")->where("customer_id", $request->user["customer_id"])->get();
+            $customer_id = $request->user['customer_id'] ?? null;
+            if (!$customer_id) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'Customer not found in request'
+                ], 400);
+            }
+            $data = DB::table("orders as a")
+                ->select('a.*', 'b.order_id as order_id')
+                ->join('order_estimate as b', 'a.estimate_id', '=', 'b.id')
+                ->where('a.customer_id', $customer_id)
+                ->orderBy('a.id', 'desc')
+                ->get();
+
             return response()->json([
                 'error' => false,
                 'message' => 'Load successfully.',
                 'data' => $data,
-
             ]);
         } catch (\Exception $e) {
 
@@ -2321,30 +2349,41 @@ class mobileAppController extends Controller
     public function getOrderDetails(Request $request, $id)
     {
         try {
-            $query = DB::table('orders');
 
-            if ($id) {
-                $query->where('orders.id', $id);
+            $customer_id = $request->user['customer_id'] ?? null;
+
+            if (!$customer_id) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'Customer not found'
+                ], 400);
             }
-
-            $orders = $query->orderBy('orders.id', 'desc')->get();
-
+            $orders = DB::table('orders as o')
+                ->leftJoin('order_estimate as oe', 'o.estimate_id', '=', 'oe.id')
+                ->where('o.id', $id)
+                ->where('o.customer_id', $customer_id)
+                ->select(
+                    'o.*',
+                    'oe.order_id as order_id'
+                )
+                ->get();
             foreach ($orders as $order) {
-                $order->items = DB::table('orders_item')
-                    ->join('products', 'orders_item.product_id', '=', 'products.id')
+
+                $order->items = DB::table('orders_item as oi')
+                    ->join('products as p', 'oi.product_id', '=', 'p.id')
                     ->select(
-                        'orders_item.*',
-                        'products.name as product_name',
-                        'products.image as product_image',
+                        'oi.*',
+                        'p.name as product_name',
+                        'p.image as product_image',
                         DB::raw("
-            CASE 
-                WHEN products.image IS NOT NULL AND products.image != '' 
-                THEN CONCAT('https://store.bulkbasketindia.com/product images/', products.image) 
-                ELSE NULL 
-            END as image
-        ")
+                        CASE 
+                            WHEN p.image IS NOT NULL AND p.image != '' 
+                            THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image)
+                            ELSE NULL 
+                        END as image
+                    ")
                     )
-                    ->where('orders_item.order_id', $order->id)
+                    ->where('oi.order_id', $order->id)
                     ->get();
             }
 
@@ -2354,6 +2393,7 @@ class mobileAppController extends Controller
                 'data' => $orders
             ]);
         } catch (\Exception $e) {
+
             return response()->json([
                 'error' => true,
                 'message' => 'Something went wrong.',

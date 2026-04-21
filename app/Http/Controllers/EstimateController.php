@@ -34,6 +34,7 @@ class EstimateController extends Controller
             "address" => $customer->address,
             "state" => $customer->state,
             "district" => $customer->district,
+            "customer_gst" => $customer->gst,
             "city" => $customer->city,
         ]);
     }
@@ -157,7 +158,7 @@ class EstimateController extends Controller
                 $usedWallet = (float)($customer->used_wallet ?? 0);
                 if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
                     DB::rollBack();
-                    return redirect()->with('error', 'Wallet amount is less than order total.');
+                    return redirect()->back()->with('error', 'Wallet amount is less than order total.');
                 }
                 DB::table('order_estimate')->where('id', $order_id)->update([
                     'payment_status' => "Hold"
@@ -172,10 +173,48 @@ class EstimateController extends Controller
                 ->update([
                     'order_id' => $next_order_id
                 ]);
-            return redirect()->back()->with('success', "Estimate Saved Successfully");
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            return redirect()->back()->with('error', $th->getMessage());
+            $orders = DB::table("order_estimate as a")
+                ->select(
+                    "a.*",
+                    "c.name as supplier_name",
+                    "c.number as supplier_number",
+                    "c.email as supplier_email",
+                    "c.address as supplier_address",
+                    "c.state as supplier_state",
+                    "c.district as supplier_district",
+                    "c.city as supplier_city",
+                    "c.pincode as supplier_pincode",
+                    "b.subtotal",
+                    "b.shipping_status as status",
+                    "b.id as supplier_id",
+                    "cu.name as customer_name",
+                    "cu.email as customer_email",
+                    "cu.number as customer_number",
+                    "cu.address as customer_address",
+                    "cu.state as customer_state",
+                    "cu.district as customer_district",
+                    "cu.city as customer_city",
+                    "cu.pincode as customer_pincode",
+                    "cus.gst"
+                )
+                ->leftJoin("orders_supplier as b", "a.id", "b.order_id")
+                ->leftJoin("suppliers as c", "b.supplier_id", "c.id")
+                ->leftJoin("customer_users as cu", "a.customer_id", "cu.id")
+                ->leftJoin("customers as cus", "a.customer_id", "cus.id")
+                ->where("a.id", $order_id)
+                ->first();
+            return response()->json([
+                'error' => false,
+                'message' => 'Order Save successfully.',
+                'data' => $orders
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'error' => true,
+                'message' => 'Something went wrong.',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

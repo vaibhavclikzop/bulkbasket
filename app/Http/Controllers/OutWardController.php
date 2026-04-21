@@ -14,7 +14,7 @@ class OutWardController extends Controller
         $customers = DB::table("customer_users as cu")
             ->join("customers as c", "cu.customer_id", "=", "c.id")
             ->where("c.active", 1)
-            ->select("cu.*", "cu.name as customer_name")
+            ->select("cu.*", "c.name as customer_name")
             ->get();
         $order_mst = DB::table("orders")
             ->where("customer_id", $request->customer_id)
@@ -46,7 +46,7 @@ class OutWardController extends Controller
                     $join->on("a.product_id", "=", "c.product_id")
                         ->where("c.order_id", "=", $outward_mst->order_id);
                 })
-                ->join("product_brand as z", "b.brand_id", "z.id")
+                ->leftJoin("product_brand as z", "b.brand_id", "z.id")
                 ->leftJoin("current_stock as j", function ($join) {
                     $join->on("a.product_id", "=", "j.product_id")
                         ->on("a.location_id", "=", "j.location_id");
@@ -61,8 +61,9 @@ class OutWardController extends Controller
     public function GetCustomerOrder(Request $request)
     {
         $order_mst =  DB::table("orders as a")
-            ->select('a.*', 'oe.order_id as e_order_id')
+            ->select('a.*', 'oe.order_id as e_order_id', 'cu.name as customer_name')
             ->join("order_estimate as oe", "a.estimate_id", "=", "oe.id")
+            ->join("customers as cu", "a.customer_id", "=", "cu.id")
             ->where("a.customer_id", $request->id)
             ->whereNot("a.order_status", "complete")
             ->get();
@@ -114,124 +115,343 @@ class OutWardController extends Controller
     public function SaveOutwardStock(Request $request)
     {
         $outward_id = 'PT_' . date('dmyhis');
-        $validator = Validator::make($request->all(), [
-            'customer_id' => 'required',
-            'order_id' => 'required',
-        ]);
-        if ($validator->fails()) {
-            $messages = $validator->errors();
-            $count = 0;
-            foreach ($messages->all() as $error) {
-                if ($count == 0)
-                    return redirect()->back()->with('error', $error);
-                $count++;
-            }
-        }
+
         $prod_list = json_decode($request->prod_list);
-        if (!$prod_list) {
-            return redirect()->back()->with('error', "Select at least one product");
-        }
+
+        // if (!$prod_list) {
+        //     return redirect()->back()->with('error', "Select at least one product");
+        // }
+
         DB::beginTransaction();
-        $order_mst =  DB::table("orders")->where("id", $request->order_id)->first();
+
         try {
-            if (!$request->id) {
-                $mst_id = DB::table('stock_outward_mst')->insertGetId(array(
+            $order_id = $request->order_id;
+            if (!$request->out_id) {
+
+                $mst_id = DB::table('stock_outward_mst')->insertGetId([
                     "customer_id" => $request->customer_id,
                     "order_id" => $request->order_id,
                     "outward_id" => $outward_id,
-                    "supplier_id" => $request->user['supplier_id'],
+                    "supplier_id" => $request->user['supplier_id'] ?? 1,
                     "warehouse_id" => $request->warehouse_id,
-                ));
+                ]);
             } else {
-                DB::table('stock_outward_mst')->where("id", $request->id)->update(array(
-                    "description" => $request->description,
-                ));
-                $mst_id = $request->id;
+                $mst_id = $request->out_id;
                 $som = DB::table("stock_outward_mst")->where("id", $mst_id)->first();
-                $sod = DB::table("stock_outward_det")->where("mst_id", $mst_id)->get();
-                foreach ($sod as $key => $value) {
-                    DB::table("orders_item")
-                        ->where("order_id", $som->order_id)
-                        ->where("product_id", $value->product_id)
-                        ->decrement("out_qty", $value->qty);
-                    DB::table('current_stock')
-                        ->where("warehouse_id", $value->warehouse_id)
-                        ->where("location_id", $value->location_id)
-                        ->where("product_id", $value->product_id)
-                        ->update([
-                            "stock" => DB::raw("stock - $value->qty")
-                        ]);
-                    DB::table("stock_outward_det")->where("id", $value->id)->delete();
-                }
-            }
-            $status = 0;
-            foreach ($prod_list as $key => $value) {
-
-                if ($value->qty <= 0) {
-                    continue;
-                }
-                $stock = DB::table("stock_outward_det")
+                $order_id = $som->order_id;
+                $oldItems = DB::table("stock_outward_det")
                     ->where("mst_id", $mst_id)
-                    ->where("product_id", $value->product_id)
-                    ->first();
-
-                if ($stock) {
-                    $qty = $value->qty - $stock->qty;
-                    DB::table("stock_outward_det")
-                        ->where("id", $stock->id)
+                    ->get();
+                foreach ($oldItems as $old) {
+                    DB::table("orders_item")
+                        ->where("order_id", $order_id)
+                        ->where("product_id", $old->product_id)
+                        ->decrement("out_qty", $old->qty);
+                    DB::table("current_stock")
+                        ->where("warehouse_id", $old->warehouse_id)
+                        ->where("location_id", $old->location_id)
+                        ->where("product_id", $old->product_id)
                         ->update([
-                            "warehouse_id" => $request->warehouse_id,
-                            "location_id" => $value->location_id,
-                            "qty" => $value->qty,
-                            "price" => $value->price,
+                            "stock" => DB::raw("stock + {$old->qty}")
                         ]);
-                } else {
-                    $qty = $value->qty;
-                    DB::table('stock_outward_det')->insert([
-                        "mst_id" => $mst_id,
-                        "warehouse_id" => $request->warehouse_id,
-                        "location_id" => $value->location_id,
-                        "product_id" => $value->product_id,
-                        "qty" => $value->qty,
-                        "price" => $value->price,
-                    ]);
                 }
-                DB::table("orders_item")
-                    ->where("order_id", $request->order_id)
+                DB::table("stock_outward_det")
+                    ->where("mst_id", $mst_id)
+                    ->delete();
+            }
+            foreach ($prod_list as $value) {
+                if ($value->qty <= 0) continue;
+                $availableStock = DB::table("current_stock")
+                    ->where("warehouse_id", $request->warehouse_id)
+                    ->where("location_id", $value->location_id)
                     ->where("product_id", $value->product_id)
-                    ->increment("out_qty", $qty);
+                    ->value("stock");
+                $availableStock = (float) $availableStock;
+                if ($availableStock <= 0) {
+                    throw new \Exception("Stock not available for product ID: " . $value->product_id);
+                }
+                $requestedQty = (float) $value->qty;
+
+                $issueQty = min($requestedQty, $availableStock);
+                // if ($issueQty <= 0) {
+                //     continue;
+                // }
+                $pendingQty = $requestedQty - $issueQty;
+                DB::table('stock_outward_det')->insert([
+                    "mst_id" => $mst_id,
+                    "warehouse_id" => $request->warehouse_id,
+                    "location_id" => $value->location_id,
+                    "product_id" => $value->product_id,
+                    "qty" => $issueQty,
+                    "price" => $value->price,
+                ]);
+                DB::table("orders_item")
+                    ->where("order_id", $order_id)
+                    ->where("product_id", $value->product_id)
+                    ->increment("out_qty", $issueQty);
                 DB::table('current_stock')
                     ->where("warehouse_id", $request->warehouse_id)
                     ->where("location_id", $value->location_id)
                     ->where("product_id", $value->product_id)
                     ->update([
-                        "stock" => DB::raw("GREATEST(stock - $qty,0)")
+                        "stock" => DB::raw("stock - {$issueQty}")
                     ]);
             }
             $pending = DB::table('orders_item')
-                ->where("order_id", $request->order_id)
-                ->whereRaw("qty > out_qty")
+                ->where("order_id", $order_id)
+                ->whereColumn("qty", ">", "out_qty")
                 ->exists();
-            if ($pending) {
-                DB::table('orders')
-                    ->where("id", $request->order_id)
-                    ->update([
-                        "status" => "pending"
-                    ]);
-            } else {
-                DB::table('orders')
-                    ->where("id", $request->order_id)
-                    ->update([
-                        "status" => "complete"
-                    ]);
-            }
+            DB::table('orders')
+                ->where("id", $order_id)
+                ->update([
+                    "status" => $pending ? "pending" : "complete"
+                ]);
+
             DB::commit();
+            return redirect()->back()->with('success', "Save Successfully");
         } catch (\Throwable $th) {
             DB::rollBack();
             return redirect()->back()->with('error', $th->getMessage());
         }
-        return redirect()->back()->with('success', "Save Successfully");
     }
+
+    // public function SaveOutwardStock(Request $request)
+    // {
+    //     $outward_id = 'PT_' . date('dmyhis');
+    //     $validator = Validator::make($request->all(), [
+    //         'customer_id' => 'required',
+    //         'order_id' => 'required',
+    //     ]);
+    //     if ($validator->fails()) {
+    //         return redirect()->back()->with('error', $validator->errors()->first());
+    //     }
+    //     $prod_list = json_decode($request->prod_list);
+    //     if (!$prod_list) {
+    //         return redirect()->back()->with('error', "Select at least one product");
+    //     }
+    //     DB::beginTransaction();
+    //     try {
+    //         $order_mst = DB::table("orders")
+    //             ->where("id", $request->order_id)
+    //             ->first(); 
+    //         if (!$request->id) {
+
+    //             $mst_id = DB::table('stock_outward_mst')->insertGetId([
+    //                 "customer_id" => $request->customer_id,
+    //                 "order_id" => $request->order_id,
+    //                 "outward_id" => $outward_id,
+    //                 "supplier_id" => $request->user['supplier_id'] ?? 1,
+    //                 "warehouse_id" => $request->warehouse_id,
+    //             ]);
+    //         } else {
+    //             $mst_id = $request->id;
+    //             $som = DB::table("stock_outward_mst")->where("id", $mst_id)->first();
+    //             $oldItems = DB::table("stock_outward_det")->where("mst_id", $mst_id)->get(); 
+    //             foreach ($oldItems as $value) {
+    //                 DB::table("orders_item")
+    //                     ->where("order_id", $som->order_id)
+    //                     ->where("product_id", $value->product_id)
+    //                     ->decrement("out_qty", $value->qty);
+    //                 DB::table("current_stock")
+    //                     ->where("warehouse_id", $value->warehouse_id)
+    //                     ->where("location_id", $value->location_id)
+    //                     ->where("product_id", $value->product_id)
+    //                     ->update([
+    //                         "stock" => DB::raw("stock + $value->qty")
+    //                     ]);
+    //                 DB::table("stock_outward_det")
+    //                     ->where("id", $value->id)
+    //                     ->delete();
+    //             }
+    //         } 
+    //         foreach ($prod_list as $value) {
+    //             if ($value->qty <= 0) continue;
+    //             $availableStock = DB::table("current_stock")
+    //                 ->where("warehouse_id", $request->warehouse_id)
+    //                 ->where("location_id", $value->location_id)
+    //                 ->where("product_id", $value->product_id)
+    //                 ->value("stock");
+    //             $availableStock = (float) $availableStock;
+    //             $orderedQty = (float) $value->qty;
+    //             $issueQty = min($orderedQty, $availableStock);
+    //             if ($issueQty <= 0) {
+    //                 continue;
+    //             }
+    //             $existing = DB::table("stock_outward_det")
+    //                 ->where("mst_id", $mst_id)
+    //                 ->where("product_id", $value->product_id)
+    //                 ->first();
+    //             if ($existing) {
+    //                 $diffQty = $issueQty - $existing->qty;
+    //                 DB::table("stock_outward_det")
+    //                     ->where("id", $existing->id)
+    //                     ->update([
+    //                         "warehouse_id" => $request->warehouse_id,
+    //                         "location_id" => $value->location_id,
+    //                         "qty" => $issueQty,
+    //                         "price" => $value->price,
+    //                     ]);
+    //             } else {
+    //                 $diffQty = $issueQty;
+    //                 DB::table('stock_outward_det')->insert([
+    //                     "mst_id" => $mst_id,
+    //                     "warehouse_id" => $request->warehouse_id,
+    //                     "location_id" => $value->location_id,
+    //                     "product_id" => $value->product_id,
+    //                     "qty" => $issueQty,
+    //                     "price" => $value->price,
+    //                 ]);
+    //             }
+    //             DB::table("orders_item")
+    //                 ->where("order_id", $request->order_id)
+    //                 ->where("product_id", $value->product_id)
+    //                 ->increment("out_qty", $issueQty);
+    //             DB::table('current_stock')
+    //                 ->where("warehouse_id", $request->warehouse_id)
+    //                 ->where("location_id", $value->location_id)
+    //                 ->where("product_id", $value->product_id)
+    //                 ->update([
+    //                     "stock" => DB::raw("stock - $issueQty")
+    //                 ]);
+    //         } 
+    //         $pending = DB::table('orders_item')
+    //             ->where("order_id", $request->order_id)
+    //             ->whereRaw("qty > out_qty")
+    //             ->exists();
+    //         DB::table('orders')
+    //             ->where("id", $request->order_id)
+    //             ->update([
+    //                 "status" => $pending ? "pending" : "complete"
+    //             ]);
+    //         DB::commit();
+    //         return redirect()->back()->with('success', "Save Successfully");
+    //     } catch (\Throwable $th) {
+    //         DB::rollBack();
+    //         return redirect()->back()->with('error', $th->getMessage());
+    //     }
+    // }
+
+    // public function SaveOutwardStock(Request $request)
+    // {
+    //     $outward_id = 'PT_' . date('dmyhis');
+    //     $validator = Validator::make($request->all(), [
+    //         'customer_id' => 'required',
+    //         'order_id' => 'required',
+    //     ]);
+    //     if ($validator->fails()) {
+    //         $messages = $validator->errors();
+    //         $count = 0;
+    //         foreach ($messages->all() as $error) {
+    //             if ($count == 0)
+    //                 return redirect()->back()->with('error', $error);
+    //             $count++;
+    //         }
+    //     }
+    //     $prod_list = json_decode($request->prod_list);
+    //     if (!$prod_list) {
+    //         return redirect()->back()->with('error', "Select at least one product");
+    //     }
+    //     DB::beginTransaction();
+    //     $order_mst =  DB::table("orders")->where("id", $request->order_id)->first();
+    //     try {
+    //         if (!$request->id) {
+    //             $mst_id = DB::table('stock_outward_mst')->insertGetId(array(
+    //                 "customer_id" => $request->customer_id,
+    //                 "order_id" => $request->order_id,
+    //                 "outward_id" => $outward_id,
+    //                 "supplier_id" => $request->user['supplier_id'],
+    //                 "warehouse_id" => $request->warehouse_id,
+    //             ));
+    //         } else {
+    //             DB::table('stock_outward_mst')->where("id", $request->id)->update(array(
+    //                 "description" => $request->description,
+    //             ));
+    //             $mst_id = $request->id;
+    //             $som = DB::table("stock_outward_mst")->where("id", $mst_id)->first();
+    //             $sod = DB::table("stock_outward_det")->where("mst_id", $mst_id)->get();
+    //             foreach ($sod as $key => $value) {
+    //                 DB::table("orders_item")
+    //                     ->where("order_id", $som->order_id)
+    //                     ->where("product_id", $value->product_id)
+    //                     ->decrement("out_qty", $value->qty);
+    //                 DB::table('current_stock')
+    //                     ->where("warehouse_id", $value->warehouse_id)
+    //                     ->where("location_id", $value->location_id)
+    //                     ->where("product_id", $value->product_id)
+    //                     ->update([
+    //                         "stock" => DB::raw("stock - $value->qty")
+    //                     ]);
+    //                 DB::table("stock_outward_det")->where("id", $value->id)->delete();
+    //             }
+    //         }
+    //         $status = 0;
+    //         foreach ($prod_list as $key => $value) {
+
+    //             if ($value->qty <= 0) {
+    //                 continue;
+    //             }
+    //             $stock = DB::table("stock_outward_det")
+    //                 ->where("mst_id", $mst_id)
+    //                 ->where("product_id", $value->product_id)
+    //                 ->first();
+
+    //             if ($stock) {
+    //                 $qty = $value->qty - $stock->qty;
+    //                 DB::table("stock_outward_det")
+    //                     ->where("id", $stock->id)
+    //                     ->update([
+    //                         "warehouse_id" => $request->warehouse_id,
+    //                         "location_id" => $value->location_id,
+    //                         "qty" => $value->qty,
+    //                         "price" => $value->price,
+    //                     ]);
+    //             } else {
+    //                 $qty = $value->qty;
+    //                 DB::table('stock_outward_det')->insert([
+    //                     "mst_id" => $mst_id,
+    //                     "warehouse_id" => $request->warehouse_id,
+    //                     "location_id" => $value->location_id,
+    //                     "product_id" => $value->product_id,
+    //                     "qty" => $value->qty,
+    //                     "price" => $value->price,
+    //                 ]);
+    //             }
+    //             DB::table("orders_item")
+    //                 ->where("order_id", $request->order_id)
+    //                 ->where("product_id", $value->product_id)
+    //                 ->increment("out_qty", $qty);
+    //             DB::table('current_stock')
+    //                 ->where("warehouse_id", $request->warehouse_id)
+    //                 ->where("location_id", $value->location_id)
+    //                 ->where("product_id", $value->product_id)
+    //                 ->update([
+    //                     "stock" => DB::raw("GREATEST(stock - $qty,0)")
+    //                 ]);
+    //         }
+    //         $pending = DB::table('orders_item')
+    //             ->where("order_id", $request->order_id)
+    //             ->whereRaw("qty > out_qty")
+    //             ->exists();
+    //         if ($pending) {
+    //             DB::table('orders')
+    //                 ->where("id", $request->order_id)
+    //                 ->update([
+    //                     "status" => "pending"
+    //                 ]);
+    //         } else {
+    //             DB::table('orders')
+    //                 ->where("id", $request->order_id)
+    //                 ->update([
+    //                     "status" => "complete"
+    //                 ]);
+    //         }
+    //         DB::commit();
+    //     } catch (\Throwable $th) {
+    //         DB::rollBack();
+    //         return redirect()->back()->with('error', $th->getMessage());
+    //     }
+    //     return redirect()->back()->with('success', "Save Successfully");
+    // }
 
     public function OutwardOrderList(Request $request)
     {
@@ -256,7 +476,7 @@ class OutWardController extends Controller
             )
             ->join("orders as b", "a.order_id", "=", "b.id")
             ->join("order_estimate as oe", "b.estimate_id", "=", "oe.id")
-            ->leftJoin("customer_users as c", "b.customer_id", "=", "c.id")
+            ->leftJoin("customers as c", "b.customer_id", "=", "c.id")
             ->where("a.supplier_id", $request->user['supplier_id']);
         if ($id) {
             $out->where("a.order_id", $id);
@@ -345,7 +565,7 @@ class OutWardController extends Controller
                 "is_invoice" => 1,
                 "invoice_id" => $inv_id,
             ));
-             DB::table("suppliers")
+            DB::table("suppliers")
                 ->where('id', 1)
                 ->update([
                     'inv_id' => $next_order_id
@@ -383,7 +603,7 @@ class OutWardController extends Controller
             )
             ->leftJoin("orders as b", "a.order_id", "=", "b.id")
             ->leftJoin("order_estimate as oe", "b.estimate_id", "=", "oe.id")
-            ->leftJoin("customer_users as c", "b.customer_id", "=", "c.id")
+            ->leftJoin("customers as c", "b.customer_id", "=", "c.id")
             ->leftJoin("stock_outward_det as d", "a.id", "=", "d.mst_id")
             ->leftJoin("products as p", "d.product_id", "=", "p.id")
             ->where("a.supplier_id", $request->user['supplier_id'])

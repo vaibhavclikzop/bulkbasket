@@ -203,6 +203,9 @@
                         toastr.success(res.message || "Success", "success");
                         $("#eInvocieModal").modal("hide");
                         confirmBtn.prop("disabled", false).text("Save");
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
                     } else {
 
                         let msg =

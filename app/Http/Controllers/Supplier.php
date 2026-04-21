@@ -638,15 +638,15 @@ class Supplier extends Controller
                 "c.name as supplier_name",
                 "c.number as supplier_number",
                 "c.email as supplier_email",
-                "c.address as supplier_address",
-                "c.state as supplier_state",
-                "c.district as supplier_district",
-                "c.city as supplier_city",
-                "c.pincode as supplier_pincode",
+                "a.address as supplier_address",
+                "a.state as supplier_state",
+                "a.district as supplier_district",
+                "a.city as supplier_city",
+                "a.pincode as supplier_pincode",
                 "b.subtotal",
                 "b.shipping_status as status",
                 "b.id as supplier_id",
-                "cu.name as customer_name",
+                "cus.name as customer_name",
                 "cu.email as customer_email",
                 "cu.number as customer_number",
                 "cu.address as customer_address",
@@ -654,7 +654,11 @@ class Supplier extends Controller
                 "cu.district as customer_district",
                 "cu.city as customer_city",
                 "cu.pincode as customer_pincode",
-                "cus.supplier_id"
+                "cus.gst",
+                "cus.supplier_id",
+                "cus.wallet",
+                "cus.used_wallet",
+                "cus.hold_amount"
             )
             ->leftJoin("orders_supplier as b", "a.id", "b.order_id")
             ->leftJoin("suppliers as c", "b.supplier_id", "c.id")
@@ -667,7 +671,11 @@ class Supplier extends Controller
                 "a.*",
                 "b.hsn_code",
                 "b.base_price",
-                "c.name as uom"
+                "b.gst",
+                "c.name as uom",
+                DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
+                FROM current_stock cs
+                WHERE cs.product_id = a.id) as current_stock")
             )
             ->join("products as b", "a.product_id", "b.id")
             ->join("product_uom as c", "b.uom_id", "c.id")
@@ -679,23 +687,29 @@ class Supplier extends Controller
 
     public function getProducts(Request $request)
     {
-        $query = DB::table("products")->where("active", 1);
-
+        $query = DB::table("products as a")
+            ->select(
+                "a.*",
+                "a.id",
+                "a.name",
+                "a.base_price",
+                "a.gst",
+                DB::raw("(SELECT COALESCE(SUM(cs.stock), 0)
+                FROM current_stock cs
+                WHERE cs.product_id = a.id) as current_stock")
+            )
+            ->where("a.active", 1);
         if ($request->has('search') && !empty($request->search)) {
-            $query->where("name", "like", "%" . $request->search . "%");
+            $query->where("a.name", "like", "%" . $request->search . "%");
         }
-
         $page = $request->input("page", 1);
         $perPage = 200;
         $offset = ($page - 1) * $perPage;
         $totalCount = (clone $query)->count();
-
         $products = $query
-            ->select("id", "name", "base_price")
             ->offset($offset)
             ->limit($perPage)
             ->get();
-
         foreach ($products as $product) {
             $product->details = DB::table("product_price")
                 ->where("product_id", $product->id)
@@ -727,6 +741,118 @@ class Supplier extends Controller
         return view('suppliers.create-order-estimate')->with($data);
     }
 
+    public function updateChallan(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+
+            $orderId = $request->estimate_id;
+            $paymode = $request->pay_mode;
+            $payment_status = "Hold";
+            $totalAmount = 0;
+            foreach ($request->price as $i => $price) {
+                $qty = $request->qty[$i] ?? 0;
+                $gst = $request->gst[$i] ?? 0;
+                $cess = $request->cess_tax[$i] ?? 0;
+                $itemTotal = $price * $qty;
+                $taxTotal = ($itemTotal * ($gst + $cess)) / 100;
+                $totalAmount += ($itemTotal + $taxTotal);
+            }
+            $customer = DB::table('customers')->where('id', $request->customer_id)->first();
+            if ($paymode == 'wallet' && $customer) {
+                $wallet = (float)($customer->wallet ?? 0);
+                $holdAmount = (float)($customer->hold_amount ?? 0);
+                $usedWallet = (float)($customer->used_wallet ?? 0);
+                if (($holdAmount + $usedWallet + $totalAmount) > $wallet) {
+                    DB::rollBack();
+                    return back()->with('error', 'Wallet amount is less than order total.');
+                }
+                DB::table('customers')
+                    ->where('id', $request->customer_id)
+                    ->update([
+                        'hold_amount' => $holdAmount + $totalAmount,
+                        'updated_at' => now(),
+                    ]);
+                $payment_status = "Hold";
+            }
+            DB::table('order_estimate')
+                ->where('id', $orderId)
+                ->update([
+                    'customer_id' => $request->customer_id,
+                    'total_amount' => $totalAmount,
+                    'name' => $request->name ?? '',
+                    'number' => $request->number ?? '',
+                    'email' => $request->email ?? '',
+                    'pay_mode' => $paymode,
+                    'payment_status' => $payment_status,
+                    'address' => $request->address ?? '',
+                    'state' => $request->state ?? '',
+                    'district' => $request->district ?? '',
+                    'city' => $request->city ?? '',
+                    'pincode' => $request->pincode ?? '',
+                    'updated_at' => now(),
+                ]);
+            $existingItemIds = DB::table('order_estimate_item')
+                ->where('order_id', $orderId)
+                ->pluck('id')
+                ->toArray();
+            $submittedItemIds = [];
+            foreach ($request->product_id as $i => $productId) {
+                if (!$productId) continue;
+                $itemId = $request->item_id[$i] ?? null;
+                if ($itemId) {
+                    DB::table('order_estimate_item')
+                        ->where('id', $itemId)
+                        ->update([
+                            'product_id' => $productId,
+                            'supplier_id' => 1,
+                            'qty' => $request->qty[$i] ?? 0,
+                            'price' => $request->price[$i] ?? 0,
+                            'name' => $request->product_name[$i] ?? '',
+                            'description' => $request->description[$i] ?? '',
+                            'gst' => $request->gst[$i] ?? 0,
+                            'cess_tax' => $request->cess_tax[$i] ?? 0,
+                            'updated_at' => now(),
+                        ]);
+                    $submittedItemIds[] = $itemId;
+                } else {
+                    $newId = DB::table('order_estimate_item')->insertGetId([
+                        'order_id' => $orderId,
+                        'product_id' => $productId,
+                        'supplier_id' => 1,
+                        'qty' => $request->qty[$i] ?? 0,
+                        'price' => $request->price[$i] ?? 0,
+                        'name' => $request->product_name[$i] ?? '',
+                        'description' => $request->description[$i] ?? '',
+                        'gst' => $request->gst[$i] ?? 0,
+                        'cess_tax' => $request->cess_tax[$i] ?? 0,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $submittedItemIds[] = $newId;
+                }
+            }
+            $deleteIds = array_diff($existingItemIds, $submittedItemIds);
+            if (!empty($deleteIds)) {
+                DB::table('order_estimate_item')
+                    ->whereIn('id', $deleteIds)
+                    ->delete();
+            }
+            DB::table('orders_supplier')
+                ->where('order_id', $orderId)
+                ->update([
+                    'subtotal' => $totalAmount,
+                    'supplier_id' => 1,
+                    'updated_at' => now(),
+                ]);
+            DB::commit();
+            return redirect("supplier/orders-estimate/pending")
+                ->with('success', 'Order updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
+        }
+    }
 
 
     public function OrdersSave(Request $request)
@@ -932,7 +1058,8 @@ class Supplier extends Controller
                 "cu.state as customer_state",
                 "cu.district as customer_district",
                 "cu.city as customer_city",
-                "cu.pincode as customer_pincode"
+                "cu.pincode as customer_pincode",
+                "cus.gst"
             )
             ->leftJoin("orders_supplier as b", "a.id", "b.order_id")
             ->leftJoin("suppliers as c", "b.supplier_id", "c.id")
@@ -1113,11 +1240,13 @@ class Supplier extends Controller
                 "cu.state as customer_state",
                 "cu.district as customer_district",
                 "cu.city as customer_city",
-                "cu.pincode as customer_pincode"
+                "cu.pincode as customer_pincode",
+                "cs.gst"
             )
             ->leftJoin("orders_supplier as b", "a.id", "b.order_id")
             ->leftJoin("suppliers as c", "b.supplier_id", "c.id")
             ->leftJoin("customer_users as cu", "a.customer_id", "cu.id")
+            ->leftJoin("customers as cs", "cu.customer_id", "cs.id")
             ->where("a.estimate_id", $id)
             ->first();
         $det = DB::table("orders_item as a")
@@ -1136,7 +1265,6 @@ class Supplier extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id' => 'required',
-
         ]);
 
         if ($validator->fails()) {
@@ -1153,61 +1281,61 @@ class Supplier extends Controller
         try {
 
             DB::table('orders_supplier')->where("id", $request->id)->update(array(
-                "shipping_status" => $request->status,
-                "user_id" => $request->user_id,
+                "shipping_status" => "complete",
+                "user_id" => 1,
             ));
             DB::table('orders')->where("id", $request->id)->update(array(
-                "order_status" => $request->status,
-                "user_id" => $request->user_id,
+                "status" => "complete",
+                "user_id" => 1,
             ));
-            $order = DB::table('orders')->where('id', $request->id)->first();
-            $suppliers = DB::table("supplier_users")->whereIn("id", $request->userIds)->first();
-            $customer = DB::table('customers')->where('id', $order->customer_id)->first();
-            $customerUser = DB::table('customer_users')->where('customer_id', $order->customer_id)->first();
-            $orderType = "Order";
-            if ($customerUser && $customerUser->email) {
-                try {
-                    $supplier = DB::table('suppliers')->where('id', $customer->supplier_id)->first();
-                    $emailTemplate = null;
+            // $order = DB::table('orders')->where('id', $request->id)->first();
+            // $suppliers = DB::table("supplier_users")->whereIn("id", $request->userIds)->first();
+            // $customer = DB::table('customers')->where('id', $order->customer_id)->first();
+            // $customerUser = DB::table('customer_users')->where('customer_id', $order->customer_id)->first();
+            // $orderType = "Order";
+            // if ($customerUser && $customerUser->email) {
+            //     try {
+            //         $supplier = DB::table('suppliers')->where('id', $customer->supplier_id)->first();
+            //         $emailTemplate = null;
 
-                    if ($supplier && $supplier->email_temp_id) {
-                        $emailTemplate = DB::table('email_template')->where('id', $supplier->email_temp_id)->first();
-                    }
-                    Mail::to($customerUser->email)->send(
-                        new OrderEstimateStatusMail($order, $orderType, $emailTemplate, $suppliers)
-                    );
-                } catch (\Throwable $th) {
-                    Log::error('Failed to send order status email: ' . $th->getMessage());
-                }
-            }
-            $phone = $customerUser->number ?? $customer->number ?? null;
-            if (!$phone) {
-                Log::warning("⚠️ No phone number for order_estimate_id={$order->id}");
-                return back()->with('warning', 'No phone number available');
-            }
-            $cleanPhone = preg_replace('/\D+/', '', $phone);
-            if (strlen($cleanPhone) == 10) $cleanPhone = '91' . $cleanPhone;
-            $smsConfig = config('services.smswala');
-            $message = "Dear Customer, your Order  status has been updated. "
-                . "Order ID: #{$order->id}, Status: {$order->order_status}, "
-                . "Total Amount: ₹{$order->total_amount} - Bulk Basket India";
-            $msgVars = urlencode("#VAR1#={$order->id}&#VAR2#={$order->order_status}&#VAR3#={$order->total_amount}");
-            $url = "{$smsConfig['url']}?"
-                . "key={$smsConfig['key']}"
-                . "&campaign={$smsConfig['campaign']}"
-                . "&routeid={$smsConfig['routeid']}"
-                . "&type=text"
-                . "&contacts={$cleanPhone}"
-                . "&senderid={$smsConfig['sender']}"
-                . "&msg=" . urlencode($message)
-                . "&template_id={$smsConfig['templates']['template']}"
-                . "&pe_id={$smsConfig['pe_id']}";
-            $response = Http::get($url);
-            if ($response->successful() && (stripos($response->body(), 'SMS-SHOOT-ID') !== false || stripos($response->body(), 'SUCCESS') !== false)) {
-                Log::info("✅ SMS sent successfully for order_estimate_id={$order->id}, to={$cleanPhone}, resp=" . $response->body());
-            } else {
-                Log::error("❌ SMS failed for order_estimate_id={$order->id}, status=" . $response->status() . ", resp=" . $response->body());
-            }
+            //         if ($supplier && $supplier->email_temp_id) {
+            //             $emailTemplate = DB::table('email_template')->where('id', $supplier->email_temp_id)->first();
+            //         }
+            //         Mail::to($customerUser->email)->send(
+            //             new OrderEstimateStatusMail($order, $orderType, $emailTemplate, $suppliers)
+            //         );
+            //     } catch (\Throwable $th) {
+            //         Log::error('Failed to send order status email: ' . $th->getMessage());
+            //     }
+            // }
+            // $phone = $customerUser->number ?? $customer->number ?? null;
+            // if (!$phone) {
+            //     Log::warning("⚠️ No phone number for order_estimate_id={$order->id}");
+            //     return back()->with('warning', 'No phone number available');
+            // }
+            // $cleanPhone = preg_replace('/\D+/', '', $phone);
+            // if (strlen($cleanPhone) == 10) $cleanPhone = '91' . $cleanPhone;
+            // $smsConfig = config('services.smswala');
+            // $message = "Dear Customer, your Order  status has been updated. "
+            //     . "Order ID: #{$order->id}, Status: {$order->order_status}, "
+            //     . "Total Amount: ₹{$order->total_amount} - Bulk Basket India";
+            // $msgVars = urlencode("#VAR1#={$order->id}&#VAR2#={$order->order_status}&#VAR3#={$order->total_amount}");
+            // $url = "{$smsConfig['url']}?"
+            //     . "key={$smsConfig['key']}"
+            //     . "&campaign={$smsConfig['campaign']}"
+            //     . "&routeid={$smsConfig['routeid']}"
+            //     . "&type=text"
+            //     . "&contacts={$cleanPhone}"
+            //     . "&senderid={$smsConfig['sender']}"
+            //     . "&msg=" . urlencode($message)
+            //     . "&template_id={$smsConfig['templates']['template']}"
+            //     . "&pe_id={$smsConfig['pe_id']}";
+            // $response = Http::get($url);
+            // if ($response->successful() && (stripos($response->body(), 'SMS-SHOOT-ID') !== false || stripos($response->body(), 'SUCCESS') !== false)) {
+            //     Log::info("✅ SMS sent successfully for order_estimate_id={$order->id}, to={$cleanPhone}, resp=" . $response->body());
+            // } else {
+            //     Log::error("❌ SMS failed for order_estimate_id={$order->id}, status=" . $response->status() . ", resp=" . $response->body());
+            // }
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }

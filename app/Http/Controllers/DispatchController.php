@@ -93,7 +93,7 @@ class DispatchController extends Controller
             )
             ->leftJoin("orders as b", "a.order_id", "=", "b.id")
             ->leftJoin("order_estimate as oe", "b.estimate_id", "=", "oe.id")
-            ->leftJoin("customer_users as c", "b.customer_id", "=", "c.id")
+            ->leftJoin("customers as c", "b.customer_id", "=", "c.id")
             ->leftJoin("stock_outward_det as d", "a.id", "=", "d.mst_id")
             ->leftJoin("products as p", "d.product_id", "=", "p.id")
             ->where("a.supplier_id", $request->user['supplier_id'])
@@ -129,29 +129,48 @@ class DispatchController extends Controller
     {
         $request->validate([
             'id' => 'required',
-            'transport_id' => 'required',
+            'transport_date' => 'required',
         ]);
-        $transport = DB::table('mode_of_transport')
-            ->where('id', $request->transport_id)
-            ->first();
-
-        if (!$transport) {
-            return back()->with('error', 'Transport not found');
-        }
-
-        DB::table('stock_outward_mst')
-            ->where('id', $request->id)
-            ->update([
-                // 'dispatch_status' => 'final',
-                'status' => 'dispatch',
-                'transport_id' => $request->transport_id,
-                'transport_date' => $request->transport_date,
-                'transport_remarks' => $request->transport_remarks,
-                'vehicle_number' => $transport->vehicle_no,
-                'driver_name' => $transport->name,
-                'driver_no' => $transport->number,
-                'updated_at' => now(),
+        if ($request->transport_id === "other") {
+            $request->validate([
+                'vehicle_number' => 'required',
+                'driver_name' => 'required',
+                'driver_no' => 'required',
             ]);
+
+            DB::table('stock_outward_mst')
+                ->where('id', $request->id)
+                ->update([
+                    'status' => 'dispatch',
+                    'transport_id' => null,
+                    'transport_date' => $request->transport_date,
+                    'transport_remarks' => $request->transport_remarks,
+                    'vehicle_number' => $request->vehicle_number,
+                    'driver_name' => $request->driver_name,
+                    'driver_no' => $request->driver_no,
+                    'updated_at' => now(),
+                ]);
+        } else { 
+            $transport = DB::table('mode_of_transport')
+                ->where('id', $request->transport_id)
+                ->first();
+
+            if (!$transport) {
+                return back()->with('error', 'Transport not found');
+            }
+            DB::table('stock_outward_mst')
+                ->where('id', $request->id)
+                ->update([
+                    'status' => 'dispatch',
+                    'transport_id' => $request->transport_id,
+                    'transport_date' => $request->transport_date,
+                    'transport_remarks' => $request->transport_remarks,
+                    'vehicle_number' => $transport->vehicle_no,
+                    'driver_name' => $transport->name,
+                    'driver_no' => $transport->number,
+                    'updated_at' => now(),
+                ]);
+        }
 
         return back()->with('success', 'Vehicle allocated successfully');
     }
@@ -166,7 +185,7 @@ class DispatchController extends Controller
         DB::table('stock_outward_mst')
             ->where('id', $request->order_id)
             ->update([
-                'dispatch_status' =>'final',
+                'dispatch_status' => 'final',
                 'status' => $request->status,
                 'updated_at' => now(),
             ]);
@@ -174,7 +193,7 @@ class DispatchController extends Controller
         return back()->with('success', 'Status  successfully');
     }
 
-     public function orderDelivered(Request $request, $status)
+    public function orderDelivered(Request $request, $status)
     {
         // $status = "processing";
         $id = request()->id;
@@ -202,7 +221,7 @@ class DispatchController extends Controller
         ) as total_amount")
             )
             ->leftJoin("orders as b", "a.order_id", "=", "b.id")
-            ->leftJoin("customer_users as c", "b.customer_id", "=", "c.id")
+            ->leftJoin("customers as c", "b.customer_id", "=", "c.id")
             ->leftJoin("stock_outward_det as d", "a.id", "=", "d.mst_id")
             ->leftJoin("products as p", "d.product_id", "=", "p.id")
             ->where("a.supplier_id", $request->user['supplier_id'])
@@ -228,7 +247,7 @@ class DispatchController extends Controller
             );
         $outward = $out
             ->orderBy("a.id", "desc")
-            ->get(); 
+            ->get();
         $transport = DB::table("mode_of_transport")->get();
         return view('suppliers.delivered-outwards', compact("outward", "transport"));
     }

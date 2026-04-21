@@ -141,6 +141,7 @@ class EInvoiceController extends Controller
             if (empty($itemList)) {
                 dd("ItemList empty", $products);
             }
+            $vehicleNumber = strtoupper(str_replace([' ', '-', '_'], '', $invoice->vehicle_number));
             $payload = [
                 "access_token" => $token,
                 "userGstin" => "05AAABC0181E1ZE",
@@ -169,7 +170,7 @@ class EInvoiceController extends Controller
                 "transportation_distance" => "10",
 
                 // "vehicle_number" => "UK07AB1234",
-                "vehicle_number" => $invoice->vehicle_number,
+                "vehicle_number" => $vehicleNumber,
                 "vehicle_type" => "Regular",
 
                 "itemList" => $itemList
@@ -195,17 +196,35 @@ class EInvoiceController extends Controller
             $validUpto = null;
 
             if (!empty($eway['ewayBillDate'])) {
-                $ewayBillDate = Carbon::createFromFormat(
-                    'd/m/Y h:i:s A',
-                    $eway['ewayBillDate']
-                )->format('Y-m-d H:i:s');
+
+                $date = trim($eway['ewayBillDate']);
+
+                // 🔥 REMOVE AM/PM completely (your API is inconsistent)
+                $date = preg_replace('/\s(AM|PM)$/i', '', $date);
+
+                try {
+                    $ewayBillDate = Carbon::createFromFormat('d/m/Y H:i:s', $date)
+                        ->format('Y-m-d H:i:s');
+                } catch (\Exception $e) {
+                    $ewayBillDate = Carbon::parse($date)
+                        ->format('Y-m-d H:i:s');
+                }
             }
 
             if (!empty($eway['validUpto'])) {
-                $validUpto = Carbon::createFromFormat(
-                    'd/m/Y h:i:s A',
-                    $eway['validUpto']
-                )->format('Y-m-d H:i:s');
+
+                $date = trim($eway['validUpto']);
+
+                // 🔥 REMOVE AM/PM
+                $date = preg_replace('/\s(AM|PM)$/i', '', $date);
+
+                try {
+                    $validUpto = Carbon::createFromFormat('d/m/Y H:i:s', $date)
+                        ->format('Y-m-d H:i:s');
+                } catch (\Exception $e) {
+                    $validUpto = Carbon::parse($date)
+                        ->format('Y-m-d H:i:s');
+                }
             }
             DB::table('stock_outward_mst')
                 ->where('id', $request->invoice_id)
