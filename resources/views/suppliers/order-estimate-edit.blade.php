@@ -136,14 +136,14 @@
                                     ->orderBy('qty', 'asc')
                                     ->get();
                             @endphp
-                            <tr data-base-price="{{ $item->base_price }}"
+                            <tr data-base-price="{{ $item->price }}"
                                 data-bulk-prices='@json($bulkPrices, JSON_HEX_APOS | JSON_HEX_QUOT)'>
                                 <td style="border: solid 1px; padding:2px">{{ $loop->iteration }}</td>
                                 <td style="border: solid 1px; padding:2px">{{ $item->name }}🟢 Stock:
                                     {{ $item->current_stock }}📊 GST:{{ $item->gst }}%</td>
                                 <td style="border: solid 1px; padding:2px">
                                     <input type="number" class="form-control form-control-sm price-input"
-                                        value="{{ $item->price }}" name="price[]">
+                                        value="{{ $item->price }}" step="0.01" name="price[]">
                                 </td>
                                 <td style="border: solid 1px; padding:2px">
                                     <input type="number" class="qty-input form-control form-control-sm"
@@ -282,7 +282,7 @@
                 newRow.innerHTML = `
             <td style="border: solid 1px; padding:2px">1</td>
             <td style="border: solid 1px; padding:2px"><select class="form-control form-control-sm product-select"></select></td>
-            <td style="border: solid 1px; padding:2px"><input type="number" class="form-control form-control-sm price-input" placeholder="0"   name="price[]"></td>
+            <td style="border: solid 1px; padding:2px"><input type="number" class="form-control form-control-sm price-input" step="0.01" placeholder="0"   name="price[]"></td>
             <td style="border: solid 1px; padding:2px"><input type="number" class="qty-input form-control form-control-sm" value="1" name="qty[]" style="width:80px;"></td>
              
             <td style="border: solid 1px; padding:2px"><button type="button" class="btn btn-sm btn-danger remove-btn">Remove</button></td>

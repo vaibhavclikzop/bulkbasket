@@ -45,6 +45,7 @@ class Supplier extends Controller
             ->join('customers as c', 'c.id', '=', 'oe.customer_id')
             ->select(
                 'oe.id',
+                'oe.order_id',
                 'oe.payment_status',
                 'oe.total_amount',
                 'oe.order_status',
@@ -605,6 +606,32 @@ class Supplier extends Controller
         }
     }
 
+    public function OrdersChallanDraft(Request $request, $status)
+    {
+        $data = DB::table("orders_supplier as a")
+            ->select(
+                "b.*",
+                "a.subtotal",
+                "a.shipping_status as status",
+                "b.id",
+                "a.id as supplier_order_id",
+                "c.total_amount"
+            )
+            ->join("order_estimate as b", "a.order_id", "b.id")
+            ->leftJoin("orders as c", "b.id", "c.estimate_id")
+            ->where("a.supplier_id", $request->user['supplier_id'])
+            ->where("b.order_status", $status)
+            ->where("b.active", 0)
+            ->orderBy("a.id", "desc")
+            ->get();
+
+        $suppliers = DB::table("supplier_users")
+            ->whereIn("id", $request->userIds)
+            ->get();
+
+        return view("suppliers.orders-challan-draft", compact("data", "suppliers", "status"));
+    }
+
     public function OrdersEstimate(Request $request, $status)
     {
         $data = DB::table("orders_supplier as a")
@@ -620,6 +647,7 @@ class Supplier extends Controller
             ->leftJoin("orders as c", "b.id", "c.estimate_id")
             ->where("a.supplier_id", $request->user['supplier_id'])
             ->where("b.order_status", $status)
+            ->where("b.active", 1)
             ->orderBy("a.id", "desc")
             ->get();
 
@@ -846,7 +874,7 @@ class Supplier extends Controller
                     'updated_at' => now(),
                 ]);
             DB::commit();
-            return redirect("supplier/orders-estimate/pending")
+            return redirect()->back()
                 ->with('success', 'Order updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1213,8 +1241,6 @@ class Supplier extends Controller
             ->get();
         return view("suppliers.orders-management", compact("data", "suppliers", "status"));
     }
-
-
 
 
     public function OrderDetails(Request $request, $id)
@@ -1653,7 +1679,6 @@ class Supplier extends Controller
         }
     }
 
-
     public function EditEstimateOrder(Request $request)
     {
         $request->validate([
@@ -1818,6 +1843,7 @@ class Supplier extends Controller
             }
             DB::table('order_estimate')->where('id', $orderId)->update([
                 'order_status' => 'processing',
+                'active' => 1,
                 'updated_at' => now(),
             ]);
             $customerUser = DB::table('customer_users')->where('customer_id', $orderEstimate->customer_id)->first();
@@ -1870,7 +1896,6 @@ class Supplier extends Controller
             return redirect()->back()->with('success', 'Order status updated, email and SMS sent successfully!');
         }
     }
-
 
     public function requestListProduct(Request $request)
     {

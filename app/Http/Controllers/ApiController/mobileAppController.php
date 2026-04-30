@@ -287,7 +287,7 @@ class mobileAppController extends Controller
                 })
                 ->join("product_category as pc", "a.category_id", "pc.id")
                 ->join("product_sub_category as psc", "a.sub_category_id", "psc.id")
-                ->join("product_type as pt", "a.product_type_id", "pt.id")
+                ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
                 ->join("product_uom as um", "a.uom_id", "um.id")
                 ->where("a.is_home", 1)
                 ->where("a.active", 1);
@@ -798,7 +798,7 @@ class mobileAppController extends Controller
                             ->where("b.customer_id", $request->user["customer_id"])
                             ->where("a.supplier_id", $request->user["supplier_id"]);
                     })
-                    ->join('product_type as pt', 'a.product_type_id', 'pt.id')
+                    ->leftJoin('product_type as pt', 'a.product_type_id', 'pt.id')
                     ->join("product_uom as um", "a.uom_id", "um.id")
                     ->leftJoin("product_brand as pb", "a.brand_id", "pb.id")
                     ->where("a.sub_category_id", $sub->id)
@@ -1359,7 +1359,7 @@ class mobileAppController extends Controller
 
             $wishlist = DB::table("wishlist as c")
                 ->join("products as p", "c.product_id", "p.id")
-                ->join("product_type as pt", "p.product_type_id", "pt.id")
+                ->leftJoin("product_type as pt", "p.product_type_id", "pt.id")
                 ->join("product_uom as um", "p.uom_id", "um.id")
                 ->where("c.customer_id", $customer_id)
                 ->select(
@@ -1662,7 +1662,7 @@ class mobileAppController extends Controller
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->leftJoin("product_sub_category as d", "a.sub_category_id", "d.id")
-            ->join("product_type as f", "a.product_type_id", "f.id")
+            ->leftJoin("product_type as f", "a.product_type_id", "f.id")
             ->leftJoin("product_brand as bd", "a.brand_id", "bd.id")
             ->where("a.id", $id)
             ->where("a.active", 1)
@@ -2138,6 +2138,7 @@ class mobileAppController extends Controller
             $current_order_id = $challan_data->order_id;
             $next_order_id = $current_order_id + 1;
             $orders_id = $challan_data->order_series . $next_order_id;
+            $my_order_id = $challan_data->order_series . $current_order_id;
             $order_id = DB::table("order_estimate")->insertGetId([
                 "order_id" => $orders_id,
                 "customer_id" => $request->user['customer_id'],
@@ -2206,7 +2207,7 @@ class mobileAppController extends Controller
                 $holdAmount = (float)($customer->hold_amount ?? 0);
                 $usedWallet = (float)($customer->used_wallet ?? 0);
 
-                if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
+                if (($holdAmount  + $total_amount) > $wallet) {
                     DB::rollBack();
                     return response()->json([
                         'status' => false,
@@ -2221,24 +2222,25 @@ class mobileAppController extends Controller
                 DB::table("customers")
                     ->where("id", $request->user['customer_id'])
                     ->increment("hold_amount", $total_amount);
-
-               
             }
 
             DB::table("cart")
                 ->where("customer_id", $request->user['customer_id'])
                 ->delete();
 
-             DB::table("suppliers")
-                    ->where('id', 1)
-                    ->update([
-                        'order_id' => $next_order_id
-                    ]);
+            DB::table("suppliers")
+                ->where('id', 1)
+                ->update([
+                    'order_id' => $next_order_id
+                ]);
             DB::commit();
             return response()->json([
                 'error' => false,
                 'message' => 'Order placed successfully.',
                 'order_id' => $order_id,
+                'my_order_id' => $my_order_id,
+                'delivery_date' => $request->delivery_date,
+                'payment_method' => $request->pay_mode,
                 'invoice_no' => $invoice_no
             ]);
         } catch (\Exception $e) {
@@ -2405,63 +2407,77 @@ class mobileAppController extends Controller
     public function getWalletLedger(Request $request)
     {
 
-        try {
-            //code...
-
+        try { 
+            
             $customerId = $request->user["customer_id"];
             $company = DB::table("customers")
                 ->where("id", $request->user["customer_id"])
                 ->first();
 
             $wallet_statement = DB::table(DB::raw("(
-                -- 💰 1️⃣ Wallet Ledger (Credit)
-                SELECT 
-                    id, 
-                    created_at, 
-                    amount, 
-                    'credit' AS type, 
-                    invoice_no, 
-                    'Sale (GST)' AS particular, 
-                    pay_date, 
-                    pay_mode, 
-                    remarks
-                FROM wallet_ledger
-                WHERE customer_id = $customerId
+    
+                    -- 💰 1️⃣ Wallet Ledger (Credit)
+                    SELECT 
+                        wl.id,
+                        wl.created_at,
+                        wl.amount,
+                        'credit' AS type,
+                        wl.invoice_no,
+                        'Sale (GST)' AS particular,
+                        wl.pay_date,
+                        wl.pay_mode,
+                        wl.remarks,
+                        NULL AS order_id
 
-                UNION ALL
+                    FROM wallet_ledger wl
+                    WHERE wl.customer_id = $customerId
 
-                -- 💸 2️⃣ Orders paid via wallet (Debit)
-                SELECT 
-                    id, 
-                    created_at, 
-                    total_amount AS amount, 
-                    'debit' AS type, 
-                    invoice_no, 
-                    'Payment' AS particular, 
-                    created_at AS pay_date, 
-                    pay_mode, 
-                    'Order Generated' AS remarks
-                FROM orders
-                WHERE customer_id = $customerId AND pay_mode = 'wallet'
+                    UNION ALL
 
-                UNION ALL
+                    -- 💸 2️⃣ Orders paid via wallet (Debit)
+                    SELECT 
+                        o.id,
+                        o.created_at,
+                        o.total_amount AS amount,
+                        'debit' AS type,
+                        o.invoice_no,
+                        'Payment' AS particular,
+                        o.created_at AS pay_date,
+                        o.pay_mode,
+                        'Order Generated' AS remarks,
+                        oe.order_id AS order_id
 
-                -- 🪙 3️⃣ Interest Earned (Credit)
-                SELECT 
-                     i.id, 
-                    i.created_at, 
-                    i.intrest_value AS amount, 
-                    'credit' AS type, 
-                    o.invoice_no, 
-                    'Interest (Wallet)' AS particular, 
-                    i.created_at AS pay_date, 
-                    'wallet' AS pay_mode, 
-                    'Interest added to wallet' AS remarks
-                FROM order_payment_intrest i
-                INNER JOIN orders o ON o.id = i.order_id
-                INNER JOIN customers c ON c.id = o.customer_id
-                WHERE c.id = $customerId
-            ) AS wallet_union"))
+                    FROM orders o
+                    LEFT JOIN order_estimate oe 
+                        ON oe.id = o.estimate_id
+
+                    WHERE o.customer_id = $customerId
+                    AND o.pay_mode = 'wallet'
+
+                    UNION ALL
+
+                    -- 🪙 3️⃣ Interest Earned (Credit)
+                    SELECT 
+                        i.id,
+                        i.created_at,
+                        i.intrest_value AS amount,
+                        'credit' AS type,
+                        o.invoice_no,
+                        'Interest (Wallet)' AS particular,
+                        i.created_at AS pay_date,
+                        'wallet' AS pay_mode,
+                        'Interest added to wallet' AS remarks,
+                        NULL AS order_id
+
+                    FROM order_payment_intrest i
+                    INNER JOIN orders o 
+                        ON o.id = i.order_id
+                    INNER JOIN customers c 
+                        ON c.id = o.customer_id
+
+                    WHERE c.id = $customerId
+
+                ) AS wallet_union"))
                 ->orderBy('created_at', 'desc')
                 ->get();
             $balance = 0;

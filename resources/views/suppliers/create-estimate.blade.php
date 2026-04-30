@@ -6,17 +6,24 @@
 
     <div class="card">
         <div class="card-header">
-            <div class="d-flex justify-content-between">
+            <div class="d-flex justify-content-between align-items-center">
+
+                <!-- LEFT SIDE -->
                 <div>
-                    <h5>Create Challan </h5>
-                    <span class="text-success">
-                        <p style="font-size: 12px;">Upcoming Order ID :
-                            {{ $order_id->order_series }}{{ $order_id->order_id + 1 }}</p>
-                    </span>
+                    <h5 class="mb-0">Create Challan</h5>
+                    <small class="text-success">
+                        Upcoming Order ID :
+                        {{ $order_id->order_series }}{{ $order_id->order_id + 1 }}
+                    </small>
                 </div>
 
-                <div>
-                    <h6>Today : {{ now()->format('d M Y') }}</h6>
+                <!-- RIGHT SIDE -->
+                <div class="d-flex align-items-center gap-3">
+                    <a href="/supplier/orders-challan-draft/pending"><button class="btn btn-md btn-warning">View
+                            Drafts</button></a>
+                    <span class="fw-semibold">
+                        Today : {{ now()->format('d M Y') }}
+                    </span>
                 </div>
 
             </div>
@@ -298,9 +305,20 @@
                             </tr> --}}
                             </tfoot>
                         </table>
-                        <div style="text-align: center">
-                            <input type="text" name="prod_list" id="prod_list" hidden>
-                            <button class="btn btn-primary" type="button" id="saveOrder">Submit</button>
+                        <input type="hidden" name="prod_list" id="prod_list">
+
+                        <div class="d-flex" style="justify-content: center">
+                            <div class="mx-3">
+                                <button class="btn btn-warning" type="button" id="saveOrderDraft">
+                                    Save Draft
+                                </button>
+                            </div>
+
+                            <div>
+                                <button class="btn btn-primary" type="button" id="saveOrder">
+                                    Submit
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -312,14 +330,51 @@
         <div class="modal-dialog modal-md">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Order Challan Created Successfully</h5>
+                    <h5 class="modal-title orderModalTitle">Order Challan Created Successfully</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="orderSuccessBody">
                 </div>
-                {{-- <div class="modal-footer">
-                    <button class="btn btn-secondary closeModalDetail" data-bs-dismiss="modal">Close</button>
-                </div> --}}
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editProductModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>Edit Product</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="edit_mainID">
+                    <input type="hidden" id="edit_gst">
+                    <input type="hidden" id="edit_stock">
+                    <div class="row">
+                        <div class="col-12">
+                            <label for="">Product</label>
+                            <select name="product_name" id="edit_product_id" class="form-control">
+                                <option value="">Select Product</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <label>Qty</label>
+                                <input type="number" id="edit_qty" class="form-control">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <label>Price</label>
+                                <input type="number" id="edit_price" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button class="btn btn-primary" id="updateProduct">Update</button>
+                </div>
             </div>
         </div>
     </div>
@@ -331,13 +386,15 @@
             $("#customer_id, #product_id").select2({
                 width: "100%"
             });
-
+            $("#edit_product_id").select2({
+                width: "100%",
+                placeholder: "Select Product"
+            });
             function focusNext(selector) {
                 setTimeout(() => {
                     $(selector).focus().select();
                 }, 50);
             }
-
             $(document).on("keydown", ".select2-search__field", function(e) {
                 if (e.key === "Enter") {
                     let productId = $("#product_id").val();
@@ -351,7 +408,6 @@
                     focusNext("#qty");
                 }
             });
-
             $(document).on("keydown", "#qty", function(e) {
                 if (e.key === "Enter") {
                     e.preventDefault();
@@ -364,7 +420,6 @@
                     focusNext("#price");
                 }
             });
-
             $(document).on("keydown", "#price", function(e) {
                 if (e.key === "Enter") {
                     e.preventDefault();
@@ -373,11 +428,9 @@
                         toastr.error("Enter valid price");
                         return;
                     }
-
                     $("#addProduct").click();
                 }
             });
-
             $("#addProduct").on("click", function() {
 
                 setTimeout(() => {
@@ -388,16 +441,19 @@
                     $("#product_id").val(null).trigger("change");
                     setTimeout(() => {
                         $("#product_id").select2("open");
+                        setTimeout(() => {
+                            document.querySelector(".select2-search__field")
+                            ?.focus();
+                        }, 150);
+
                     }, 200);
 
                 }, 200);
 
             });
-
             $("#customer_id").on("change", function() {
                 $("#product_id").removeAttr("disabled");
                 let customer_id = $(this).val();
-
                 if (customer_id == '') {
                     $('.active_amount').html('');
                     $('.state').val('');
@@ -441,7 +497,6 @@
                 });
                 toggleActiveAmount();
             })
-
             $("#product_id").select2({
                 width: "100%",
                 placeholder: "Search Product",
@@ -486,7 +541,6 @@
                     cache: true
                 }
             });
-
             $("#product_id").on("select2:select", function(e) {
                 let productId = e.params.data.id;
                 let customer_id = parseInt($("#customer_id").val());
@@ -524,18 +578,13 @@
                 });
 
             });
-
             let priceTimer;
             $("#qty").on("keyup", function() {
-
                 clearTimeout(priceTimer);
-
                 let qty = $(this).val();
                 let product_id = $("#product_id").val();
                 let customer_id = $("#customer_id").val();
-
                 priceTimer = setTimeout(function() {
-
                     $.ajax({
                         url: "/supplier/getProductQtyWisePrice",
                         type: "POST",
@@ -561,11 +610,8 @@
                                 "<i class='fa fa-refresh' ></i>");
                         }
                     });
-
                 }, 500);
-
             });
-
             $("#price").on("keyup", function() {
                 // $("#taxable").val($(this).val())
                 updateTaxable();
@@ -574,22 +620,16 @@
             function updateTaxable() {
                 let qty = parseFloat($("#qty").val()) || 0;
                 let price = parseFloat($("#price").val()) || 0;
-
                 let taxable = qty * price;
-
                 $("#taxable").val(taxable.toFixed(2));
             }
-
             $("#addProduct").on("click", function() {
                 mainID = sno;
-
                 let selectedData = $("#product_id").select2('data')[0];
-
                 if (!selectedData) {
                     alert("Please select product");
                     return;
                 }
-
                 let product_id = selectedData.id;
                 let product_name = selectedData.text;
                 let stock = parseFloat(selectedData.stock || 0);
@@ -600,6 +640,12 @@
 
                 if (!qty || qty <= 0) {
                     alert("Enter valid qty");
+                    toastr.error("Enter qty greater than 0");
+                    return;
+                }
+
+                if (!price || price <= 0) {
+                    toastr.error("Enter valid price greater than 0");
                     return;
                 }
 
@@ -607,18 +653,74 @@
                 sno++;
             });
 
-            function addProduct(product_id, product_name, qty, price, gst, cess_tax, mainID, stock) {
+            $("#updateProduct").on("click", function() {
+                let id = $("#edit_mainID").val();
+                let qty = parseFloat($("#edit_qty").val()) || 0;
+                let price = parseFloat($("#edit_price").val()) || 0;
+                let selectedData = $("#edit_product_id").select2("data")[0];
+                if (!selectedData) {
+                    toastr.error("Select product");
+                    return;
+                }
+                let product_id = selectedData.id;
+                let product_name = selectedData.text;
+                let stock = parseFloat(selectedData.stock || $("#edit_stock").val());
+                let gst = parseFloat(selectedData.gst || $("#edit_gst").val());
+                console.log(gst);
+                if (qty <= 0) {
+                    toastr.error("Invalid qty");
+                    return;
+                }
+                if (price <= 0) {
+                    toastr.error("Invalid price");
+                    return;
+                }
+                let itemIndex = product_list.findIndex(p => p.mainID == id);
+                if (itemIndex === -1) return;
+                let total = qty * price;
+                let rowClass = "table-success";
+                if (stock <= 0) {
+                    rowClass = "table-danger";
+                } else if (qty > stock) {
+                    rowClass = "table-warning";
+                }
+                product_list[itemIndex] = {
+                    ...product_list[itemIndex],
+                    product_id,
+                    product_name,
+                    qty,
+                    price,
+                    gst,
+                    stock,
+                    total
+                };
+                console.log(product_list);
+                let row = $("#prodList")
+                    .find(`span.edit-product[data-id='${id}']`)
+                    .closest("tr");
+                if (!row.length) return;
+                row.removeClass("table-danger table-warning table-success");
+                row.addClass(rowClass);
+                let cells = row.find("td");
 
+                $(cells[1]).text(product_name);
+                $(cells[2]).text(qty);
+                $(cells[3]).text(price);
+                $(cells[4]).text(gst);
+                $(cells[5]).text(total.toFixed(2));
+                $("#editProductModal").modal("hide");
+                updateFooter();
+                gstBifurcation();
+                toastr.success("Product updated");
+            });
+
+            function addProduct(product_id, product_name, qty, price, gst, cess_tax, mainID, stock) {
                 qty = parseFloat(qty);
                 price = parseFloat(price);
                 stock = parseFloat(stock || 0);
-
                 let total = price * qty;
-
-                // ✅ STATUS LOGIC
                 let rowClass = "";
                 let stockMsg = "";
-
                 if (stock <= 0) {
                     rowClass = "table-danger";
                     stockMsg = "Out of Stock";
@@ -629,7 +731,6 @@
                     rowClass = "table-success";
                     stockMsg = `In Stock (${stock})`;
                 }
-
                 let html = `<tr class="${rowClass}">
                     <td>${mainID}</td>
                     <td>${product_name}</td>
@@ -638,59 +739,28 @@
                     <td>${gst}</td>
                     <td>${total}</td> 
                     <td>
-                        <span class="remove text-danger" data-id="${mainID}">
+                        <span class="edit-product text-info mx-3" data-id="${mainID}">
+                            Edit
+                        </span> 
+                         <span class="remove text-danger" data-id="${mainID}">
                             Delete
                         </span>    
                     </td>
                 </tr>`;
-
                 product_list.push({
                     mainID,
                     product_id,
+                    product_name,
                     qty,
                     price,
                     gst,
                     total,
                     stock
                 });
-
                 $("#prodList").append(html);
-
                 updateFooter();
                 gstBifurcation();
             }
-
-            // function addProduct(product_id, product_name, qty, price, gst, cess_tax, mainID) {
-            //     let total = price * qty;
-            //     let html = `<tr>
-        //                 <td>${mainID}</td>
-        //                 <td >${product_name}</td>
-        //                 <td>${qty}</td>
-        //                 <td>${price}</td>
-        //                 <td>${gst}</td>
-        //                 <td>${total}</td>
-        //                  <td>
-        //                     <spam type="button" class="remove text-danger" data-id="${mainID}">
-        //                         Delete
-        //                     </span>    
-        //                 </td>
-        //                 </tr>`;
-            //     product_list.push({
-            //         mainID,
-            //         product_id,
-            //         qty,
-
-            //         price: price,
-            //         gst,
-
-            //         total
-            //     });
-
-            //     $("#prodList").append(html)
-            //     updateFooter();
-            //     gstBifurcation();
-
-            // }
 
             function updateFooter() {
                 let subTotal = 0;
@@ -808,12 +878,70 @@
                 gstBifurcation();
             });
 
+            $(document).on("click", ".edit-product", function() {
+                let id = $(this).data("id");
+                let item = product_list.find(p => p.mainID == id);
+                if (!item) return;
+                $("#edit_mainID").val(id);
+                $("#edit_qty").val(item.qty);
+                $("#edit_price").val(item.price);
+                $("#edit_gst").val(item.gst);
+                $("#edit_stock").val(item.stock);
+                let option = new Option(item.product_name, item.product_id, true, true);
+                $("#edit_product_id").html('').append(option).trigger("change");
+                $("#editProductModal").modal("show");
+            });
+
+            $("#edit_product_id").select2({
+                width: "100%",
+                placeholder: "Search Product",
+                minimumInputLength: 2,
+                dropdownParent: $("#editProductModal"),
+                ajax: {
+                    url: "/supplier/getOrderProducts",
+                    type: "POST",
+                    delay: 300,
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    data: function(params) {
+                        return {
+                            search: params.term,
+                            customer_id: $("#customer_id").val()
+                        };
+                    },
+                    processResults: function(response) {
+                        if (response.error == false) {
+                            return {
+                                results: response.data.map(function(item) {
+                                    return {
+                                        id: item.id,
+                                        text: `${item.name} 🟢 Stock: ${item.current_stock} 📊 GST: ${parseFloat(item.gst).toFixed(2)}%`,
+                                        stock: item.current_stock,
+                                        gst: item.gst,
+                                        price: item.base_price,
+                                        name: item.name
+                                    };
+                                })
+                            };
+                        } else {
+                            return {
+                                results: [{
+                                    id: '',
+                                    text: response.msg
+                                }]
+                            };
+                        }
+                    },
+                    cache: true
+                }
+            });
+
             function updateSerialNumbers() {
                 $("#prodList tr").each(function(index) {
                     $(this).find("td:first").text(index + 1);
                 });
             }
-
             $("#saveOrder").on("click", function(e) {
                 e.preventDefault();
 
@@ -850,10 +978,90 @@
                     data: formData,
                     processData: false,
                     contentType: false,
-
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                        'Accept': 'application/json'
+                    },
                     success: function(res) {
                         if (!res.error) {
+                            $(".orderModalTitle").text("Order Challan Created Successfully");
+                            let html = `
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <b>Order ID:</b> ${res.data.order_id ?? ''}<br>
+                                    </div>
+                                    <div class="col-md-6 text-end">
+                                        <b>Total Amount:</b> ₹${res.data.total_amount ?? 0}<br>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div>
+                                    <b>Shipping Address:</b><br>
+                                    ${res.data.customer_address ?? ''}, 
+                                    ${res.data.customer_city ?? ''}, 
+                                    ${res.data.customer_state ?? ''}
+                                </div>
+                            `;
+                            $("#orderSuccessBody").html(html);
+                            $("#orderSuccessModal").modal("show");
+                            $("#orderSuccessModal").on("hidden.bs.modal", function() {
+                                location.reload();
+                            });
+                            toastr.success(res.message);
+                        } else {
+                            toastr.error(res.message);
+                        }
+                    },
 
+                    error: function(xhr) {
+                        toastr.error(xhr.responseJSON?.message || "Something went wrong");
+                    }
+                });
+            });
+            $("#saveOrderDraft").on("click", function(e) {
+                e.preventDefault();
+
+                $('#prod_list').val(JSON.stringify(product_list));
+
+                if (!$("#customer_id").val()) {
+                    toastr.error("Select Customer");
+                    return;
+                }
+
+                if (product_list.length === 0) {
+                    toastr.error("Select at least one product");
+                    return;
+                }
+                let payMode = $("#pay_mode").val();
+                if (payMode === "wallet") {
+
+                    let active_amount = parseFloat($(".active_amount").text().replace(/[^\d.-]/g, "")) || 0;
+                    let totalAmount = parseFloat($("#totalBeforeRound").text().replace(/[^\d.-]/g, "")) ||
+                        0;
+                    if (active_amount <= 0) {
+                        toastr.error("Insufficient wallet balance");
+                        return;
+                    }
+                    if (totalAmount > active_amount) {
+                        toastr.error("Wallet amount is less than Order Amount");
+                        return;
+                    }
+                }
+                let formData = new FormData($("#frmMain")[0]);
+                $.ajax({
+                    url: "{{ route('supplier/saveEstimateDraft') }}",
+                    type: "POST",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                        'Accept': 'application/json'
+                    },
+                    success: function(res) {
+                        if (!res.error) {
+                            $(".orderModalTitle").text("Order Draft Created Successfully");
                             let html = `
                                 <div class="row">
                                     <div class="col-md-6">

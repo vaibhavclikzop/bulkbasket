@@ -20,7 +20,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-itmes-center">
                         <div>
-                            <div class="p-3 rounded bg-primary-subtle badge bg-primary" style="background-color: #84b95d !important;">
+                            <div class="p-3 rounded bg-primary-subtle badge bg-primary"
+                                style="background-color: #84b95d !important;">
                                 <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                     viewBox="0 0 24 24">
                                     <path fill-rule="evenodd" clip-rule="evenodd"
@@ -43,7 +44,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-itmes-center">
                         <div>
-                            <div class="p-3 rounded bg-primary-subtle badge bg-primary" style="background-color: #84b95d !important;">
+                            <div class="p-3 rounded bg-primary-subtle badge bg-primary"
+                                style="background-color: #84b95d !important;">
                                 <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                     viewBox="0 0 24 24">
                                     <path fill-rule="evenodd" clip-rule="evenodd"
@@ -66,7 +68,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-itmes-center">
                         <div>
-                            <div class="p-3 rounded bg-primary-subtle badge bg-primary" style="background-color: #84b95d !important;">
+                            <div class="p-3 rounded bg-primary-subtle badge bg-primary"
+                                style="background-color: #84b95d !important;">
                                 <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                     viewBox="0 0 24 24">
                                     <path fill-rule="evenodd" clip-rule="evenodd"
@@ -89,7 +92,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-itmes-center">
                         <div>
-                            <div class="p-3 rounded bg-primary-subtle badge bg-primary" style="background-color: #84b95d !important;">
+                            <div class="p-3 rounded bg-primary-subtle badge bg-primary"
+                                style="background-color: #84b95d !important;">
                                 <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                     viewBox="0 0 24 24">
                                     <path fill-rule="evenodd" clip-rule="evenodd"
@@ -139,7 +143,7 @@
                                         <td>{{ $sno++ }}</td>
                                         <td>{{ $item->name }}</td>
                                         <td>{{ $item->number }}</td>
-                                        <td>#{{ $item->id }}</td>
+                                        <td>#{{ $item->order_id }}</td>
                                         <td>{{ $item->payment_status }}</td>
                                         <td>{{ number_format($item->total_amount ?? 0, 2) }}</td>
                                         <td>{{ $item->order_status }}</td>

@@ -36,7 +36,7 @@
             <div class=" mt-3">
                 <form method="GET" action="{{ url()->current() }}">
                     <div class="d-flex mb-3">
-                        <div class="">
+                        <div class="mx-2">
                             <select name="search_brand_id" id="search_brand_id" class="form-control"
                                 onchange="this.form.submit()">
                                 <option value="">Select Brand</option>
@@ -47,7 +47,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="">
+                        <div class="mx-2">
                             <select name="search_category_id" id="search_category_id" class="form-control"
                                 onchange="this.form.submit()">
                                 <option value="">Select Category</option>
@@ -59,11 +59,25 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="">
+                        <div class="mx-2">
+                            <select name="search_active" id="search_active" class="form-control"
+                                onchange="this.form.submit()">
+                                <option value="">Select Status</option>
+
+                                <option value="1" {{ request('search_active') == '1' ? 'selected' : '' }}>
+                                    Active
+                                </option>
+
+                                <option value="0" {{ request('search_active') == '0' ? 'selected' : '' }}>
+                                    In Active
+                                </option>
+                            </select>
+                        </div>
+                        <div class="mx-2">
                             <input type="text" name="search" class="form-control"
                                 placeholder="Search Product / Brand / Article" value="{{ request('search') }}">
                         </div>
-                        <div class="">
+                        <div class="mx-2">
                             <button class="btn btn-primary">Search</button>
                             <a href="{{ url()->current() }}" class="btn btn-secondary">Reset</a>
                         </div>
@@ -889,9 +903,8 @@
     </form>
 
     <script>
-        
         $(document).ready(function() {
-            $("#search_brand_id, #search_category_id").select2();
+            $("#search_brand_id, #search_category_id","#search_active").select2();
         })
 
         $(".btnAdd").on("click", function() {

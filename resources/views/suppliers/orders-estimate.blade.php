@@ -5,7 +5,11 @@
     @endpush
 
 
-
+    <style>
+        .dropdown-menu {
+            z-index: 1000 !important;
+        }
+    </style>
     <div class="card">
         <div class="card-header">
             <div class="d-flex justify-content-between">
@@ -21,14 +25,12 @@
                     <tr>
                         <th>S.No</th>
                         <th>Customer Name</th>
-                        <th>Customer Number</th>
                         <th>Order Id</th>
-                        <th>Delivery Date</th>
-                        {{-- <th>Email</th> --}}
-                        {{-- <th>Address</th>  --}}
                         <th>Order Value</th>
-                        <th>Invoice Value</th>
-                        <th>Status</th>
+                        <th>Pay mode</th>
+                        <th>Delivery Date</th>
+                        <th>Platform</th>
+                        {{-- <th>Status</th> --}}
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -40,16 +42,67 @@
                         <tr>
                             <td>{{ $sno++ }}</td>
                             <td>{{ $item->name }}</td>
-                            <td>{{ $item->number }}</td>
                             <td>{{ $item->order_id }}</td>
-                            <td>{{ $item->delivery_date }}</td>
-                            {{-- <td>{{ $item->email }}</td> --}}
-                            {{-- <td>{{ $item->address }}, {{ $item->city }}, {{ $item->district }}, {{ $item->state }},
-                                {{ $item->pincode }}</td> --}}
                             <td>{{ $item->subtotal }}</td>
-                            <td>{{ $item->total_amount ?? '0.00' }}</td>
-                            <td>{{ $item->order_status }}</td>
+                            <td>{{ ucfirst($item->pay_mode) }}</td>
+                            <td>{{ $item->delivery_date }}</td>
+                            <td>--</td>
+                            {{-- <td>{{ $item->order_status }}</td> --}}
                             <td>
+                                <div class="dropdown">
+                                    <span class="dropdown-toggle" id="dropdownMenuButton7" data-bs-toggle="dropdown"
+                                        aria-expanded="false" role="button"> Click Here
+                                    </span>
+                                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton7"
+                                        style="
+                                        max-height: 100px;
+                                        overflow-y: auto;
+                                    ">
+                                        @if (strtolower($item->order_status) == 'pending')
+                                            <div class="mt-2">
+                                                <button class="btn btn-primary btn-sm estimate-edit"
+                                                    data-data='@json(['id' => $item->id, 'order_status' => $item->order_status])'>
+                                                    Status
+                                                </button>
+                                            </div>
+                                            <div class="mt-2">
+                                                <a href="{{ url('/supplier/edit-challan/' . $item->id) }}"
+                                                    class="btn btn-warning btn-sm">
+                                                    Edit Challan
+                                                </a>
+                                            </div>
+                                            <div class="mt-2">
+                                                <a href="{{ url('/supplier/order-estimate-details/' . $item->id) }}"
+                                                    class="btn btn-info btn-sm">
+                                                    View Challan
+                                                </a>
+                                            </div>
+                                        @elseif (strtolower($item->order_status) == 'processing')
+                                            <div class="mt-2">
+                                                <a href="{{ url('/supplier/order-estimate-edit/' . $item->id) }}"
+                                                    class="btn btn-primary btn-sm">
+                                                    <i class="fa fa-pencil" aria-hidden="true"></i>
+                                                </a>
+                                            </div>
+                                            <div class="mt-2">
+                                                <a href="{{ url('/supplier/order-estimate-details/' . $item->id) }}"
+                                                    class="btn btn-primary btn-sm">
+                                                    <i class="fa fa-eye" aria-hidden="true"></i>
+                                                </a>
+                                            </div>
+                                        @elseif(strtolower($item->order_status) == 'complete')
+                                            <div class="mt-2">
+                                                <a href="{{ url('/supplier/order-estimate-details/' . $item->id) }}"
+                                                    class="btn btn-primary btn-sm">
+                                                    <i class="fa fa-eye" aria-hidden="true"></i>
+                                                </a>
+                                            </div>
+                                            <div class="mt-2">
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            {{-- <td>
                                 @if (strtolower($item->order_status) == 'pending')
                                     <button class="btn btn-primary btn-sm estimate-edit"
                                         data-data='@json(['id' => $item->id, 'order_status' => $item->order_status])'>
@@ -78,7 +131,7 @@
                                         <i class="fa fa-eye" aria-hidden="true"></i>
                                     </a>
                                 @endif
-                            </td>
+                            </td> --}}
                         </tr>
                     @endforeach
                 </tbody>

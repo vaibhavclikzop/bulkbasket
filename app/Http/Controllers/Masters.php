@@ -174,11 +174,7 @@ class Masters extends Controller
     public function SaveProductBrand(Request $request)
     {
         $validator = Validator::make($request->all(), [
-
-
             'name' => 'required',
-
-
         ]);
 
         if ($validator->fails()) {
@@ -204,9 +200,7 @@ class Masters extends Controller
 
         try {
             $check = DB::table("product_brand")->where("name", $request->name)->where("supplier_id", $request->user["supplier_id"])->first();
-            if ($check) {
-                return redirect()->back()->with("error", "Brand name already added");
-            }
+
 
             if ($request->id) {
                 DB::table('product_brand')->where("id", $request->id)->update(array(
@@ -218,6 +212,9 @@ class Masters extends Controller
 
                 ));
             } else {
+                if ($check) {
+                    return redirect()->back()->with("error", "Brand name already added");
+                }
                 DB::table('product_brand')->insertGetId(array(
 
                     "name" => $request->name,
@@ -555,6 +552,9 @@ class Masters extends Controller
         }
         if (request("search_category_id")) {
             $query->where("a.category_id", request("search_category_id"));
+        }
+        if (request("search_active")) {
+            $query->where("a.active", request("search_active"));
         }
         $productCount = DB::table('products')->count();
         $productType = DB::table('product_type')->where('active', 1)->get();

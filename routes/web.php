@@ -222,10 +222,12 @@ Route::middleware([Suppliers::class])->group(function () {
     Route::post('supplier/update-challan', [Supplier::class, 'updateChallan'])->name('supplier/updateChallan');
     Route::get('customer-address/{id}', [EstimateController::class, 'getCustomerAddress']);
     Route::post('supplier/saveEstimate', [EstimateController::class, 'saveEstimate'])->name('supplier/saveEstimate');
+    Route::post('supplier/saveEstimateDraft', [EstimateController::class, 'saveEstimateDraft'])->name('supplier/saveEstimateDraft');
 
 
 
     Route::get('supplier/orders-estimate/{status}', [Supplier::class, 'OrdersEstimate'])->name('supplier/orders-estimate');
+    Route::get('supplier/orders-challan-draft/{status}', [Supplier::class, 'OrdersChallanDraft'])->name('supplier/supplier/orders-challan-draft');
     Route::get('supplier/order-estimate-details/{id}', [Supplier::class, 'OrderDetailsEstimate'])->name('supplier/order-estimate-details');
     Route::get('supplier/order-estimate-request-price/{id}', [Supplier::class, 'OrderEstimateRequestPrice'])->name('supplier/order-estimate-request-price');
     Route::get('supplier/get-products', [Supplier::class, 'getProducts'])->name('supplier/get-products');

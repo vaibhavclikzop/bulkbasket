@@ -140,7 +140,7 @@ Route::middleware([customerMobileMiddleware::class])->group(function () {
 Route::get('/web-test', function () {
     return response()->json(['message' => 'Web API is working']);
 });
- 
+
 // Route::post('web/send-otp', [mobileAppController::class, 'sendOTP'])->name('web/send-otp');
 // Route::post('web/verify-otp', [mobileAppController::class, 'verifyOTP'])->name('web/verify-otp');
 Route::post('web/customer-login', [LoginController::class, 'customerLoginApi']);
@@ -181,6 +181,7 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::post('web/remove-cart-item', [WebApiController::class, 'removeCartItem'])->name('web/remove-cart-item');
     Route::post('web/update-cart-qty', [WebApiController::class, 'updateCartQty'])->name('web/update-cart-qty');
     Route::post('web/add-to-wishlist', [WebApiController::class, 'addToWishList'])->name('web/add-to-wishlist');
+    Route::post('web/remove-wishlist', [ApiController::class, 'removewishlist'])->name('web/remove-wishlist');
     Route::post('web/update-wishlist-qty', [WebApiController::class, 'updateWishListQty'])->name('web/update-wishlist-qty');
     Route::get('web/get-wishlist', [WebApiController::class, 'getWishList'])->name('web/get-wishlist');
     Route::post('web/update-profile', [WebApiController::class, 'updateProfile'])->name('web/update-profile');
@@ -193,7 +194,7 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::get('web/get-states', [WebApiController::class, 'getStates'])->name('web/get-states');
     Route::get('web/get-district/{state}', [WebApiController::class, 'getDistrict'])->name('web/get-district');
     Route::post('web/delete-address', [WebApiController::class, 'deleteAddress'])->name('web/delete-address');
-     Route::get('web/checkout', [WebApiController::class, 'Checkout'])->name('web/checkout');
+    Route::get('web/checkout', [WebApiController::class, 'Checkout'])->name('web/checkout');
     Route::post('web/place-order', [WebApiController::class, 'placeOrder'])->name('web/place-order');
     Route::post('web/save-order', [WebApiController::class, 'SaveOrder'])->name('web/save-order');
     Route::get('web/get-estimate', [WebApiController::class, 'getEstimate'])->name('web/get-estimate');
@@ -201,5 +202,12 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::get('web/get-order', [WebApiController::class, 'getOrder'])->name('web/get-order');
     Route::get('web/get-order-details/{id}', [WebApiController::class, 'getOrderDetails'])->name('web/get-order-details');
     Route::post('web/add-to-cart-bulk', [WebApiController::class, 'addWishlistToCartBulk'])->name('web/add-to-cart-bulk');
+    Route::get('web/get-wallet-ledger', [WebApiController::class, 'getWalletLedger'])->name('web/get-wallet-ledger');
+    Route::post('web/add-wallet-amount', [WebApiController::class, 'AddWalletAmount'])->name('web/add-wallet-amount');
+    Route::get('web/customer-detail', [WebApiController::class, 'customerProfileApi'])->name('web/customer-detail');
+    Route::post('web/hdfc/create-order', [WebApiController::class, 'createHdfcOrder'])->name('createHdfcOrder');
+    Route::get('web/payment-processing/{invoice_no}', [WebApiController::class, 'checkStatus']);
+    Route::post('web/payment/hdfc/webhook', [WebApiController::class, 'webhook'])
+        ->name('web/hdfc.payment.webhook');
     Route::post('web/customer-logout', [LoginController::class, 'apiLogout'])->name('web/customer-logout');
 });

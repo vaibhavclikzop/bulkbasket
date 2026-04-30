@@ -153,7 +153,7 @@ class WebApiController extends Controller
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-            ->join("product_type as pt", "a.product_type_id", "pt.id")
+            ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
             ->leftJoin("product_brand as e", "a.brand_id", "e.id")
             ->where("a.active", 1)
             ->where(function ($q) use ($query) {
@@ -216,7 +216,7 @@ class WebApiController extends Controller
                         ->join("product_uom as b", "a.uom_id", "b.id")
                         ->join("product_category as c", "a.category_id", "c.id")
                         ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-                        ->join("product_type as pt", "a.product_type_id", "pt.id")
+                        ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
                         ->leftJoin("product_brand as e", "a.brand_id", "e.id")
                         ->where("a.active", 1)
                         ->where(function ($q) use ($correctedQuery) {
@@ -291,7 +291,7 @@ class WebApiController extends Controller
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-            ->join("product_type as f", "a.product_type_id", "f.id")
+            ->leftJoin("product_type as f", "a.product_type_id", "f.id")
             ->leftJoin("product_sub_sub_category as e", "a.product_sub_sub_category", "e.id")
             ->where("a.active", 1);
         if ($category_id) {
@@ -523,7 +523,7 @@ class WebApiController extends Controller
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->leftJoin("product_sub_category as d", "a.sub_category_id", "d.id")
-            ->join("product_type as f", "a.product_type_id", "f.id")
+            ->leftJoin("product_type as f", "a.product_type_id", "f.id")
             ->leftJoin("product_brand as bd", "a.brand_id", "bd.id")
             ->where("a.id", $id)
             ->where("a.active", 1)
@@ -1019,7 +1019,7 @@ class WebApiController extends Controller
                 ->join("product_category as pc", "a.category_id", "pc.id")
                 ->join("product_sub_category as psc", "a.sub_category_id", "psc.id")
                 ->join("product_sub_sub_category as pssc", "a.product_sub_sub_category", "pssc.id")
-                ->join('product_type as pt', 'a.product_type_id', 'pt.id')
+                ->leftJoin('product_type as pt', 'a.product_type_id', 'pt.id')
                 ->where("a.is_home", 1)
                 ->where("a.active", 1);
             $products = $filter->select(
@@ -1236,8 +1236,8 @@ class WebApiController extends Controller
 
             foreach ($result as $value) {
 
-                $amount = $value["price"] * $value["qty"]; // taxable amount
-                $gst = $value["gst"]; // 5,12,18
+                $amount = $value["price"] * $value["qty"];
+                $gst = $value["gst"];
 
                 $taxable += $amount;
 
@@ -1681,16 +1681,16 @@ class WebApiController extends Controller
                 ], 422);
             }
             $gstNumber = $request->gst;
-            if ($gstNumber) {
-                $gstResponse = new checkGST();
-                if (!$gstResponse || $gstResponse['status'] != 'success') {
-                    return response()->json([
-                        'error' => true,
-                        'message' => "Invalid GST Number",
-                        "data" => []
-                    ], 422);
-                }
-            }
+            // if ($gstNumber) {
+            //     $gstResponse = new checkGST();
+            //     if (!$gstResponse || $gstResponse['status'] != 'success') {
+            //         return response()->json([
+            //             'error' => true,
+            //             'message' => "Invalid GST Number",
+            //             "data" => []
+            //         ], 422);
+            //     }
+            // }
             DB::table("customers as a")
                 ->join("customer_users as b", "a.id", "b.customer_id")
                 ->where("b.id", $request->user["id"])
@@ -2076,8 +2076,13 @@ class WebApiController extends Controller
 
             $total_amount = 0;
             $invoice_no = 'INV-' . $request->user['customer_id'] . date('YmdHis');
-
+            $challan_data = DB::table("suppliers")->where('id', 1)->first();
+            $current_order_id = $challan_data->order_id;
+            $next_order_id = $current_order_id + 1;
+            $orders_id = $challan_data->order_series . $next_order_id;
+            $my_order_id = $challan_data->order_series . $current_order_id;
             $order_id = DB::table("order_estimate")->insertGetId([
+                "order_id" => $orders_id,
                 "customer_id" => $request->user['customer_id'],
                 "invoice_no" => $invoice_no,
                 "pay_mode" => $request->pay_mode,
@@ -2144,7 +2149,7 @@ class WebApiController extends Controller
                 $holdAmount = (float)($customer->hold_amount ?? 0);
                 $usedWallet = (float)($customer->used_wallet ?? 0);
 
-                if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
+                if (($holdAmount +$usedWallet  + $total_amount) > $wallet) {
                     DB::rollBack();
                     return response()->json([
                         'status' => false,
@@ -2164,7 +2169,11 @@ class WebApiController extends Controller
             DB::table("cart")
                 ->where("customer_id", $request->user['customer_id'])
                 ->delete();
-
+            DB::table("suppliers")
+                ->where('id', 1)
+                ->update([
+                    'order_id' => $next_order_id
+                ]);
             DB::commit();
             try {
 
@@ -2214,6 +2223,9 @@ class WebApiController extends Controller
                 'message' => 'Order placed successfully.',
                 'order_id' => $order_id,
                 'invoice_no' => $invoice_no,
+                'my_order_id' => $my_order_id,
+                'delivery_date' => $request->delivery_date,
+                'payment_method' => $request->pay_mode,
                 'sms_status' => $sms_status,
                 'sms_message' => $sms_message,
                 'sms_number' => $sms_number
@@ -2285,8 +2297,13 @@ class WebApiController extends Controller
 
             $total_amount = 0;
             $invoice_no = 'INV-' . $request->user['customer_id'] . date('YmdHis');
-
+            $challan_data = DB::table("suppliers")->where('id', 1)->first();
+            $current_order_id = $challan_data->order_id;
+            $next_order_id = $current_order_id + 1;
+            $orders_id = $challan_data->order_series . $next_order_id;
+            $my_order_id = $challan_data->order_series . $current_order_id;
             $order_id = DB::table("order_estimate")->insertGetId([
+                "order_id" => $orders_id,
                 "customer_id" => $request->user['customer_id'],
                 "invoice_no" => $invoice_no,
                 "pay_mode" => $request->pay_mode,
@@ -2374,12 +2391,20 @@ class WebApiController extends Controller
                 ->where("customer_id", $request->user['customer_id'])
                 ->delete();
 
+            DB::table("suppliers")
+                ->where('id', 1)
+                ->update([
+                    'order_id' => $next_order_id
+                ]);
             DB::commit();
 
             return response()->json([
                 'error' => false,
                 'message' => 'Order placed successfully.',
                 'order_id' => $order_id,
+                'my_order_id' => $my_order_id,
+                'delivery_date' => $request->delivery_date,
+                'payment_method' => $request->pay_mode,
                 'invoice_no' => $invoice_no
             ]);
         } catch (\Exception $e) {
@@ -2475,6 +2500,43 @@ class WebApiController extends Controller
         }
     }
 
+    public function removewishlist(Request $request)
+    {
+        try {
+            $product_id = $request->input('product_id');
+            $customer_id = $request->input('customer_id');
+            if (!$product_id || !$customer_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product ID & Customer ID are required'
+                ], 400);
+            }
+            $deleted = DB::table('wishlist')
+                ->where('product_id', $product_id)
+                ->where('customer_id', $customer_id)
+                ->delete();
+
+            if ($deleted) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Item removed successfully'
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No matching record found'
+                ], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error removing item',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
     public function getOrderDetails(Request $request, $id)
     {
         try {
@@ -2519,21 +2581,546 @@ class WebApiController extends Controller
         }
     }
 
-    public function getCustomers(Request $request){
-        $customer=DB::table('customers as a')
-        ->select("a.id",
-        "a.name as company_name",
-        "a.number as company_number",
-        "a.email as company_email",
-        "a.address as company_address",
-        "cu.name as customer_name",
-        "cu.number as customer_number",
-        "cu.password as customer_password")
-        ->join('customer_users as cu','a.id',"cu.customer_id")
-        ->where('active',1)->get();
+    public function getCustomers(Request $request)
+    {
+        $customer = DB::table('customers as a')
+            ->select(
+                "a.id",
+                "a.name as company_name",
+                "a.number as company_number",
+                "a.email as company_email",
+                "a.address as company_address",
+                "cu.name as customer_name",
+                "cu.number as customer_number",
+                "cu.password as customer_password"
+            )
+            ->join('customer_users as cu', 'a.id', "cu.customer_id")
+            ->where('active', 1)->get();
         return response()->json([
-            "Error"=>False,
-            "Customer list"=>$customer,
+            "Error" => False,
+            "Customer list" => $customer,
         ]);
+    }
+
+    public function getWalletLedger(Request $request)
+    {
+
+        try {
+
+            $customerId = $request->user["customer_id"];
+            $company = DB::table("customers")
+                ->where("id", $request->user["customer_id"])
+                ->first();
+
+            $wallet_statement = DB::table(DB::raw("(
+    
+                    -- 💰 1️⃣ Wallet Ledger (Credit)
+                    SELECT 
+                        wl.id,
+                        wl.created_at,
+                        wl.amount,
+                        'credit' AS type,
+                        wl.invoice_no,
+                        'Sale (GST)' AS particular,
+                        wl.pay_date,
+                        wl.pay_mode,
+                        wl.remarks,
+                        NULL AS order_id
+
+                    FROM wallet_ledger wl
+                    WHERE wl.customer_id = $customerId
+
+                    UNION ALL
+
+                    -- 💸 2️⃣ Orders paid via wallet (Debit)
+                    SELECT 
+                        o.id,
+                        o.created_at,
+                        o.total_amount AS amount,
+                        'debit' AS type,
+                        o.invoice_no,
+                        'Payment' AS particular,
+                        o.created_at AS pay_date,
+                        o.pay_mode,
+                        'Order Generated' AS remarks,
+                        oe.order_id AS order_id
+
+                    FROM orders o
+                    LEFT JOIN order_estimate oe 
+                        ON oe.id = o.estimate_id
+
+                    WHERE o.customer_id = $customerId
+                    AND o.pay_mode = 'wallet'
+
+                    UNION ALL
+
+                    -- 🪙 3️⃣ Interest Earned (Credit)
+                    SELECT 
+                        i.id,
+                        i.created_at,
+                        i.intrest_value AS amount,
+                        'credit' AS type,
+                        o.invoice_no,
+                        'Interest (Wallet)' AS particular,
+                        i.created_at AS pay_date,
+                        'wallet' AS pay_mode,
+                        'Interest added to wallet' AS remarks,
+                        NULL AS order_id
+
+                    FROM order_payment_intrest i
+                    INNER JOIN orders o 
+                        ON o.id = i.order_id
+                    INNER JOIN customers c 
+                        ON c.id = o.customer_id
+
+                    WHERE c.id = $customerId
+
+                ) AS wallet_union"))
+                ->orderBy('created_at', 'desc')
+                ->get();
+            $balance = 0;
+            foreach ($wallet_statement as $entry) {
+                if ($entry->type === 'credit') {
+                    $balance += $entry->amount;
+                } elseif ($entry->type === 'debit') {
+                    $balance -= $entry->amount;
+                }
+                $entry->balance = $balance;
+            }
+
+            return response()->json([
+                'error' => false,
+                'msg' => "Data load successfully",
+                'customer_id' => $customerId,
+                'company' => $company,
+                'data' => $wallet_statement
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Something went wrong.',
+                'error' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    public function AddWalletAmount(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'customer_id' => 'required',
+            'amount' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        try {
+            $customer = DB::table("customers")
+                ->where("id", $request->customer_id)
+                ->first();
+
+            if (!$customer) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Customer not found'
+                ], 404);
+            }
+            if ($customer->active != 1) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your account currently not active'
+                ], 403);
+            }
+            $invoice_no = 'VOU-' . $request->customer_id . date('YmdHis');
+            DB::table('wallet_ledger')->insert([
+                'customer_id' => $request->customer_id,
+                'amount' => $request->amount,
+                'pay_mode' => "Online",
+                'pay_date'  => now(),
+                'supplier_id' => 1,
+                'invoice_no' => $invoice_no,
+                'remarks' => "Add Online From Mobile",
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            DB::table("customers")
+                ->where("id", $request->customer_id)
+                ->decrement("used_wallet", $request->amount);
+            $ledgerAmount = $request->amount;
+
+            if ($ledgerAmount > 0) {
+
+                $orders = DB::table('orders')
+                    ->where('customer_id', $request->customer_id)
+                    ->where('intrest_amount', '>', 0)
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                foreach ($orders as $order) {
+
+                    if ($ledgerAmount <= 0) break;
+
+                    $currentInterest = (float) $order->intrest_amount;
+
+                    if ($ledgerAmount >= $currentInterest) {
+
+                        DB::table('orders')->where('id', $order->id)->update([
+                            'intrest_amount' => 0,
+                            'updated_at' => now()
+                        ]);
+
+                        $ledgerAmount -= $currentInterest;
+                    } else {
+
+                        DB::table('orders')->where('id', $order->id)->update([
+                            'intrest_amount' => $currentInterest - $ledgerAmount,
+                            'updated_at' => now()
+                        ]);
+
+                        $ledgerAmount = 0;
+                    }
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Wallet ledger added successfully',
+                'data' => [
+                    'invoice_no' => $invoice_no,
+                    'amount' => $request->amount
+                ]
+            ], 200);
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Something went wrong',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function customerProfileApi(Request $request)
+    {
+        $company = DB::table("customers")
+            ->where("id", $request->user["customer_id"])
+            ->first();
+
+        $customer_details = DB::table("customer_users")
+            ->where("id", $request->user["id"])
+            ->first();
+
+        $order_mst = DB::table("orders as a")
+            ->select(
+                "a.*",
+                "b.shipping_status as status",
+                "b.subtotal",
+                "b.id as order_supplier_id",
+                "c.name as supplier_name",
+                "c.number as supplier_number"
+            )
+            ->join("orders_supplier as b", "a.id", "b.order_id")
+            ->leftJoin("supplier_users as c", "a.user_id", "=", "c.id")
+            ->where("a.customer_id", $request->user["customer_id"])
+            ->orderBy("a.id", "desc")
+            ->get();
+        $order_estimate_his = DB::table("order_estimate as a")
+            ->select(
+                "a.*",
+                "b.shipping_status as status",
+                "b.subtotal",
+                "b.id as order_supplier_id",
+            )
+            ->join("orders_supplier as b", "a.id", "b.order_id")->where('order_status', "Pending")
+            ->where("a.customer_id", $request->user["customer_id"])
+            ->orderBy("a.id", "desc")
+            ->get();
+
+        $customer_document = DB::table("customer_document")
+            ->where("customer_id", $request->user["customer_id"])
+            ->get();
+
+        $orderEstimate = DB::table('order_estimate')
+            ->select(DB::raw("
+        SUM(CASE WHEN order_status IN ('Pending', 'Processing') THEN 1 ELSE 0 END) as pending_order
+        "))
+            ->where("customer_id", $request->user['customer_id'])
+            ->first();
+        $order_count = DB::table("orders")
+            ->selectRaw("
+            COUNT(*) as total_order,
+            SUM(CASE WHEN order_status = 'pending' THEN 1 ELSE 0 END) as pending_order,
+            SUM(CASE WHEN order_status = 'processing' THEN 1 ELSE 0 END) as processing_order,
+            SUM(CASE WHEN order_status = 'packed' THEN 1 ELSE 0 END) as packed_order,
+            SUM(CASE WHEN order_status = 'dispatch' THEN 1 ELSE 0 END) as dispatch_order,
+            SUM(CASE WHEN order_status = 'delivered' THEN 1 ELSE 0 END) as delivered_order
+        ")
+            ->where("customer_id", $request->user['customer_id'])
+            ->first();
+
+
+        $orders = DB::table('orders')
+            ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
+            ->where('customer_id', $request->user['customer_id'])
+            ->whereYear('created_at', date('Y'))
+            ->groupBy(DB::raw('MONTH(created_at)'))
+            ->pluck('total', 'month');
+
+        $monthlyOrders = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $monthlyOrders[] = $orders->get($m, 0);
+        }
+
+        $id = $request->user['customer_id'];
+
+        $wallet_statement = DB::table(DB::raw("(
+        -- 💰 Wallet Ledger (Credit)
+        SELECT 
+            id,
+            created_at,
+            amount,
+            'credit' as type,
+            invoice_no,
+            'Sale (GST)' as particular,
+            created_at as pay_date,
+            pay_mode,
+            invoice_no as wallet_no,
+            remarks
+        FROM wallet_ledger
+        WHERE customer_id = $id
+        AND pay_mode NOT LIKE '%Interest%'
+
+        UNION ALL
+
+        -- 🪙 Interest Ledger
+        SELECT 
+            id,
+            created_at,
+            amount,
+            'Interest' as type,
+            invoice_no,
+            'Interest Charge' as particular,
+            pay_date,
+            pay_mode,
+            invoice_no as wallet_no,
+            remarks
+        FROM wallet_ledger
+        WHERE customer_id = $id
+        AND pay_mode LIKE '%Interest%'
+
+        UNION ALL
+
+        -- 💸 Orders Paid via Wallet (Debit)
+        SELECT 
+            id,
+            created_at,
+            total_amount as amount,
+            'debit' as type,
+            invoice_no,
+            'Payment' as particular,
+            created_at as pay_date,
+            pay_mode,
+            NULL as wallet_no,
+            'Order Generated' as remarks
+        FROM orders
+        WHERE customer_id = $id 
+        AND pay_mode = 'wallet'
+
+        UNION ALL 
+
+        -- 💳 Online Payment Credit
+        SELECT
+            id,
+            created_at,
+            total_amount as amount,
+            'credit' as type,
+            invoice_no,
+            'Online Payment' as particular,
+            created_at as pay_date,
+            pay_mode,
+            NULL as wallet_no,
+            'Payment received successfully' as remarks
+            FROM order_estimate
+            WHERE customer_id = $id
+            AND pay_mode != 'wallet'
+            AND payment_status = 'success'
+
+            UNION ALL
+
+            -- 💳 Online Payment Debit (so balance is correct)
+            SELECT
+                id,
+                created_at,
+                total_amount as amount,
+                'debit' as type,
+                invoice_no,
+                'Online Payment Deducted' as particular,
+                created_at as pay_date,
+                pay_mode,
+                NULL as wallet_no,
+                'Order Payment Deducted' as remarks
+            FROM order_estimate
+            WHERE customer_id = $id
+            AND pay_mode != 'wallet'
+            AND payment_status = 'success'
+
+        ) as wallet_union"))
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $balance = 0;
+
+        foreach ($wallet_statement as $entry) {
+            if ($entry->type === 'credit' || $entry->type === 'Interest') {
+                $balance += $entry->amount;
+            } elseif ($entry->type === 'debit') {
+                $balance -= $entry->amount;
+            }
+            $entry->balance = $balance;
+        }
+        $wallet_statement = $wallet_statement->reverse()->values();
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'company' => $company,
+                'customer_details' => $customer_details,
+                'order_mst' => $order_mst,
+                'customer_document' => $customer_document,
+                'order_count' => $order_count,
+                'monthlyOrders' => $monthlyOrders,
+                'orderEstimate' => $orderEstimate,
+                'order_estimate_his' => $order_estimate_his,
+                'wallet_statement' => $wallet_statement
+            ]
+        ]);
+    }
+
+    public function createHdfcOrder(Request $request)
+    {
+        $order = DB::table('order_estimate')
+            ->where('invoice_no', $request->invoice_no)
+            ->first();
+        if (!$order) {
+            return response()->json(['status' => false, 'message' => 'Invalid Order']);
+        }
+
+        $payload = [
+            "order_id" => $order->invoice_no,
+            "amount" => (int) round($order->total_amount),
+            "customer_id" => (string) $order->customer_id,
+            "customer" => [
+                "name" => $order->name,
+                "email" => $order->email,
+                "phone" => $order->number,
+            ],
+            "return_url" => "https://bulkbasketindia.com/payment-processing?order_id={$order->invoice_no}",
+            "notify_url" => "https://bulkbasketindia.com/payment/hdfc/webhook",
+        ];
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Basic ' . base64_encode(config('services.hdfc.api_key')),
+            'x-merchantid'  => config('services.hdfc.merchant_id'),
+            'x-resellerid'  => config('services.hdfc.reseller_id'),
+            'Content-Type'  => 'application/json',
+        ])->post(config('services.hdfc.base_url') . '/orders', $payload);
+
+        return response()->json([
+            'payment_url' => $response['payment_links']['web']
+        ]);
+    }
+
+    public function checkStatus($invoiceNo)
+    {
+        $order = DB::table('order_estimate')
+            ->where('invoice_no', $invoiceNo)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['payment_status' => 'invalid']);
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Basic ' . base64_encode(config('services.hdfc.api_key')),
+            'x-merchantid'  => config('services.hdfc.merchant_id'),
+            'x-customerid'  => $order->customer_id,
+            'x-resellerid'  => config('services.hdfc.reseller_id'),
+            'Content-Type'  => 'application/json',
+        ])->get(config('services.hdfc.base_url') . "/orders/{$invoiceNo}");
+
+        $hdfcStatus = $response['status'];
+
+        // ✅ MAP HDFC STATUS
+        $map = [
+            'CHARGED' => 'success',
+            'PENDING_VBV' => 'pending',
+            'AUTHORIZING' => 'pending',
+            'STARTED' => 'pending',
+            'JUSPAY_DECLINED' => 'failed',
+            'AUTHENTICATION_FAILED' => 'failed',
+            'AUTHORIZATION_FAILED' => 'failed',
+            'AUTO_REFUNDED' => 'refunded',
+            'VOIDED' => 'cancelled',
+        ];
+
+        $finalStatus = $map[$hdfcStatus] ?? 'pending';
+
+        DB::table('order_estimate')
+            ->where('invoice_no', $invoiceNo)
+            ->update(['payment_status' => $finalStatus]);
+
+        return response()->json([
+            "order_id" => $order->invoice_no,
+            "transaction_id" => $response['id'] ?? null,
+            "amount" => $order->total_amount,
+            "currency" => "INR",
+            "payment_status" => $finalStatus,
+            "hdfc_status" => $hdfcStatus,
+            "payment_mode" => $response['payment_method'] ?? null,
+            "response_message" => $finalStatus === 'success'
+                ? "Transaction Successful"
+                : "Transaction Failed",
+            "transaction_date" => now()->format('Y-m-d H:i:s')
+        ]);
+    }
+
+    public function webhook(Request $request)
+    {
+        Log::info('HDFC WEBHOOK', $request->all());
+
+        $invoiceNo = $request->order_id;
+
+        $order = DB::table('order_estimate')
+            ->where('invoice_no', $invoiceNo)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['status' => 'ignored']);
+        }
+
+        // 🔐 Re-verify using Order Status API
+        $statusResponse = $this->checkStatus($invoiceNo);
+        $finalStatus = $statusResponse->getData()->payment_status;
+
+        if ($finalStatus === 'success') {
+            DB::table('order_estimate')
+                ->where('invoice_no', $invoiceNo)
+                ->update([
+                    'payment_status' => 'success',
+                    'order_status' => 'Confirmed'
+                ]);
+
+            DB::table("cart")
+                ->where("customer_id", $order->customer_id)
+                ->delete();
+        }
+
+        return response()->json(['status' => 'ok']);
     }
 }

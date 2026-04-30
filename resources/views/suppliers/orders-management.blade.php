@@ -41,7 +41,7 @@
                         <th>Phone</th>
                         <th>Total</th>
                         <th>Payment</th>
-                        <th>Status</th>
+                        {{-- <th>Status</th> --}}
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -61,7 +61,7 @@
                             <td>{{ $item->customer_phone }}</td>
                             <td>{{ $item->total_amount }}</td>
                             <td>{{ ucfirst($item->pay_mode) }}</td>
-                            <td>{{ ucfirst($item->order_status) }}</td>
+                            {{-- <td>{{ ucfirst($item->order_status) }}</td> --}}
                             <td>
                                 {{-- <button class="btn btn-dark btn-sm editStatus" type="button"
                                     value="{{ $item->supplier_order_id }}" data-status="{{ $item->status }}"> <i
@@ -72,7 +72,7 @@
                                         <i class="fa fa-eye" aria-hidden="true"></i> </a>
                                     <a href="/supplier/outward-stock?customer_id={{ $item->customer_id }}&order_id={{ $item->id }}"
                                         class="btn btn-primary btn-sm">
-                                        Rise Pick Ticket</a>
+                                        Raise Pick Ticket</a>
                                 @endif
                                 @if ($item->status == 'pending')
                                     <a href="/supplier/order-details/{{ $item->estimate_id }}"
@@ -80,7 +80,7 @@
                                         <i class="fa fa-eye" aria-hidden="true"></i> </a>
                                     <a href="/supplier/outward-stock?customer_id={{ $item->customer_id }}&order_id={{ $item->id }}"
                                         class="btn btn-primary btn-sm">
-                                        Rise Pick Ticket</a>
+                                        Raise Pick Ticket</a>
                                     <button class="btn btn-info btn-sm editStatus" type="button"
                                         value="{{ $item->id }}" data-status="{{ $item->status }}"> <i
                                             class="fa fa-box" aria-hidden="true"></i>

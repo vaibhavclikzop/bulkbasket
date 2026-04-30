@@ -112,16 +112,18 @@ class CustomerProductPrice extends Controller
                 FROM current_stock cs
                 WHERE cs.product_id = a.id) as current_stock")
                 )
-                ->where("a.supplier_id", $request->user["supplier_id"]); 
-            $search = strtolower(str_replace(' ', '', $request->search)); 
+                ->where("a.supplier_id", $request->user["supplier_id"]);
+            $search = strtolower(preg_replace('/[^a-z0-9]/', '', $request->search));
+
             $query->whereRaw(
-                "REPLACE(LOWER(a.name), ' ', '') LIKE ?",
+                "REGEXP_REPLACE(LOWER(a.name), '[^a-z0-9]', '') LIKE ?",
                 ["%{$search}%"]
-            ); 
+            );
+
             $query->orderByRaw("
                 CASE 
-                    WHEN REPLACE(LOWER(a.name), ' ', '') = ? THEN 1
-                    WHEN REPLACE(LOWER(a.name), ' ', '') LIKE ? THEN 2
+                    WHEN REGEXP_REPLACE(LOWER(a.name), '[^a-z0-9]', '') = ? THEN 1
+                    WHEN REGEXP_REPLACE(LOWER(a.name), '[^a-z0-9]', '') LIKE ? THEN 2
                     ELSE 3
                 END
             ", [
@@ -171,7 +173,7 @@ class CustomerProductPrice extends Controller
                     $join->on("a.id", "=", "b.product_id")
                         ->where("b.customer_id", "=", $request->customer_id);
                 })
-                ->join('product_uom as pu','a.uom_id','pu.id')
+                ->join('product_uom as pu', 'a.uom_id', 'pu.id')
                 ->where("a.supplier_id", $request->user["supplier_id"])
                 ->where("a.id", $request->product_id)
                 ->select(

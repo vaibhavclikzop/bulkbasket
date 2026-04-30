@@ -217,4 +217,183 @@ class EstimateController extends Controller
             ], 500);
         }
     }
+    public function saveEstimateDraft(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'delivery_date' => 'required',
+            'address' => 'required',
+            'state' => 'required',
+            'district' => 'required',
+            'city' => 'required',
+            "customer_id" => 'required',
+            'pay_mode' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => true,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+        $challan_data = DB::table("suppliers")->where('id', 1)->first();
+        $current_order_id = $challan_data->order_id;
+        $next_order_id = $current_order_id + 1;
+        $order_id = $challan_data->order_series . $next_order_id;
+        DB::beginTransaction();
+        try {
+            $prod_list = json_decode($request->prod_list);
+            if (!$prod_list || count($prod_list) == 0) {
+                return redirect()->back()->with('error', "Select at least one product");
+            }
+            $products = [];
+            foreach ($prod_list as $item) {
+                $product = DB::table("products")
+                    ->where("id", $item->product_id)
+                    ->first();
+                if (!$product) continue;
+                $price = $item->price;
+                $tiers = DB::table("product_price")
+                    ->where("product_id", $item->product_id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+
+                foreach ($tiers as $tier) {
+                    if ($item->qty >= $tier->qty) {
+                        $price = $tier->price;
+                    }
+                }
+                $products[] = (object)[
+                    "supplier_id" => $product->supplier_id,
+                    "product_id" => $product->id,
+                    "name" => $product->name,
+                    "description" => $product->description,
+                    "qty" => $item->qty,
+                    "price" => $price,
+                    "gst" => $product->gst,
+                    "cess_tax" => $product->cess_tax,
+                ];
+            }
+            $grouped = collect($products)->groupBy("supplier_id");
+            $customer = DB::table("customers")->where("id", $request->customer_id)->first();
+            $total_amount = 0;
+            $invoice_no = 'INV-' . $request->customer_id . date('YmdHis');
+            $order_id = DB::table("order_estimate")->insertGetId([
+                "order_id" => $order_id,
+                "customer_id" => $request->customer_id,
+                "invoice_no" => $invoice_no,
+                "pay_mode" => $request->pay_mode,
+                "payment_status" => "Pending",
+                "order_status" => "Pending",
+                "total_amount" => 0,
+                "name" => $customer->name,
+                "number" => $customer->number,
+                "email" => $customer->email,
+                "address" => $request->address,
+                "state" => $request->state,
+                "district" => $request->district,
+                "city" => $request->city,
+                "pincode" => $customer->pincode,
+                "remarks" => $request->remarks ?? null,
+                "delivery_date" => $request->delivery_date,
+                "active" => 0,
+            ]);
+            foreach ($grouped as $supplier_id => $items) {
+                $supplierSubtotal = 0;
+                $gst_total = 0;
+                $cess_total = 0;
+                foreach ($items as $item) {
+                    $rowTotal = $item->price * $item->qty;
+                    $rowGst = ($rowTotal * $item->gst) / 100;
+                    $rowCess = ($rowTotal * $item->cess_tax) / 100;
+                    $supplierSubtotal += $rowTotal;
+                    $gst_total += $rowGst;
+                    $cess_total += $rowCess;
+                    DB::table("order_estimate_item")->insert([
+                        "supplier_id" => $supplier_id,
+                        "order_id" => $order_id,
+                        "product_id" => $item->product_id,
+                        "qty" => $item->qty,
+                        "price" => $item->price,
+                        "cess_tax" => $item->cess_tax,
+                        "gst" => $item->gst,
+                        "name" => $item->name,
+                        "description" => $item->description,
+                    ]);
+                }
+                $finalSupplierTotal = $supplierSubtotal + $gst_total + $cess_total;
+                DB::table("orders_supplier")->insert([
+                    "order_id" => $order_id,
+                    "supplier_id" => $supplier_id,
+                    "subtotal" => $finalSupplierTotal,
+                    "shipping_status" => "pending",
+                ]);
+                $total_amount += $finalSupplierTotal;
+            }
+            DB::table('order_estimate')->where('id', $order_id)->update([
+                'total_amount' => $total_amount
+            ]);
+            if ($request->pay_mode === 'wallet') {
+                $wallet = (float)($customer->wallet ?? 0);
+                $holdAmount = (float)($customer->hold_amount ?? 0);
+                $usedWallet = (float)($customer->used_wallet ?? 0);
+                if (($holdAmount + $usedWallet + $total_amount) > $wallet) {
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'Wallet amount is less than order total.');
+                }
+                DB::table('order_estimate')->where('id', $order_id)->update([
+                    'payment_status' => "Hold"
+                ]);
+                DB::table("customers")
+                    ->where("id", $request->customer_id)
+                    ->increment("hold_amount", $total_amount);
+            }
+            DB::commit();
+            DB::table("suppliers")
+                ->where('id', 1)
+                ->update([
+                    'order_id' => $next_order_id
+                ]);
+            $orders = DB::table("order_estimate as a")
+                ->select(
+                    "a.*",
+                    "c.name as supplier_name",
+                    "c.number as supplier_number",
+                    "c.email as supplier_email",
+                    "c.address as supplier_address",
+                    "c.state as supplier_state",
+                    "c.district as supplier_district",
+                    "c.city as supplier_city",
+                    "c.pincode as supplier_pincode",
+                    "b.subtotal",
+                    "b.shipping_status as status",
+                    "b.id as supplier_id",
+                    "cu.name as customer_name",
+                    "cu.email as customer_email",
+                    "cu.number as customer_number",
+                    "cu.address as customer_address",
+                    "cu.state as customer_state",
+                    "cu.district as customer_district",
+                    "cu.city as customer_city",
+                    "cu.pincode as customer_pincode",
+                    "cus.gst"
+                )
+                ->leftJoin("orders_supplier as b", "a.id", "b.order_id")
+                ->leftJoin("suppliers as c", "b.supplier_id", "c.id")
+                ->leftJoin("customer_users as cu", "a.customer_id", "cu.id")
+                ->leftJoin("customers as cus", "a.customer_id", "cus.id")
+                ->where("a.id", $order_id)
+                ->first();
+            return response()->json([
+                'error' => false,
+                'message' => 'Order Save successfully.',
+                'data' => $orders
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'error' => true,
+                'message' => 'Something went wrong.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
