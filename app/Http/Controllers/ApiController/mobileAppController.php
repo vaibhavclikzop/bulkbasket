@@ -454,6 +454,7 @@ class mobileAppController extends Controller
                 "b.name as uom_name",
                 "c.name as category",
                 "d.name as sub_category",
+                "pt.name as product_type",
                 DB::raw("
                     CASE 
                         WHEN a.image IS NOT NULL AND a.image != '' 
@@ -471,6 +472,7 @@ class mobileAppController extends Controller
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+            ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
             ->where("a.active", 1)
             ->where("a.is_deal", 1);
         if ($category_id) {
@@ -2407,8 +2409,8 @@ class mobileAppController extends Controller
     public function getWalletLedger(Request $request)
     {
 
-        try { 
-            
+        try {
+
             $customerId = $request->user["customer_id"];
             $company = DB::table("customers")
                 ->where("id", $request->user["customer_id"])
@@ -2508,122 +2510,326 @@ class mobileAppController extends Controller
 
     public function searchProducts(Request $request, $query)
     {
-        // $query = trim($request->input("query"));
-        $query = trim($query);
+        try {
+            $query = trim($query);
+            $customer_id = $request->customer_id ?? null;
 
-        if (!$query) {
-            return response()->json([
-                'status' => true,
-                'message' => 'No query provided',
-                'data' => []
-            ]);
-        }
-
-        // 🧩 Step 1: Initial Search (normal LIKE search)
-        $productsQuery = DB::table("products as a")
-            ->select(
-                "a.*",
-                "b.name as uom",
-                "c.name as category",
-                "d.name as sub_category",
-                "e.name as brand",
-                DB::raw("
-            CASE 
-                WHEN a.image IS NOT NULL AND a.image != '' 
-                THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
-                ELSE NULL 
-            END as image
-        ")
-            )
-            ->join("product_uom as b", "a.uom_id", "b.id")
-            ->join("product_category as c", "a.category_id", "c.id")
-            ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-            ->leftJoin("product_brand as e", "a.brand_id", "e.id")
-            ->where("a.active", 1)
-            ->where(function ($q) use ($query) {
-                $q->where('a.name', 'like', '%' . $query . '%')
-                    ->orWhere('a.tags', 'like', '%' . $query . '%');
-            });
-
-        $products = $productsQuery->limit(20)->get();
-
-        // 🧠 Step 2: If no products found → use AI to correct query
-        if ($products->isEmpty()) {
-            try {
-                $apiKey = config('services.openai.key');
-                $prompt = "The user searched for '{$query}'. Suggest the most likely correct English product search word. 
-            Return only the corrected word (no extra text). Example:
-            Input: chini
-            Output: sugar";
-
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type' => 'application/json',
-                ])->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => 'gpt-3.5-turbo',
-                    'messages' => [
-                        ['role' => 'system', 'content' => 'You are a spelling correction assistant for an e-commerce product search.'],
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                    'temperature' => 0.2,
-                ]);
-
-                $aiContent = trim($response->json()['choices'][0]['message']['content'] ?? '');
-
-                if ($aiContent && strtolower($aiContent) !== strtolower($query)) {
-                    $correctedQuery = $aiContent;
-
-                    $products = DB::table("products as a")
-                        ->select(
-                            "a.*",
-                            "b.name as uom",
-                            "c.name as category",
-                            "d.name as sub_category",
-                            "e.name as brand",
-                            DB::raw("
-            CASE 
-                WHEN a.image IS NOT NULL AND a.image != '' 
-                THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
-                ELSE NULL 
-            END as image
-        ")
-
-                        )
-                        ->join("product_uom as b", "a.uom_id", "b.id")
-                        ->join("product_category as c", "a.category_id", "c.id")
-                        ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-                        ->leftJoin("product_brand as e", "a.brand_id", "e.id")
-                        ->where("a.active", 1)
-                        ->where(function ($q) use ($correctedQuery) {
-                            $q->where('a.name', 'like', '%' . $correctedQuery . '%')
-                                ->orWhere('a.tags', 'like', '%' . $correctedQuery . '%')
-                                ->orWhere('a.description', 'like', '%' . $correctedQuery . '%');
-                        })
-                        ->limit(20)
-                        ->get();
-
-                    return response()->json([
-                        'status' => true,
-                        'message' => 'Search completed (auto-corrected)',
-                        'corrected_query' => $correctedQuery,
-                        'data' => $products,
-                    ]);
-                }
-            } catch (\Exception $e) {
+            if (empty($query)) {
                 return response()->json([
-                    'error' => true,
-                    'message' => $e->getMessage(),
-                    'data' => [],
+                    'status' => true,
+                    'message' => 'No query provided',
+                    'data' => []
                 ]);
             }
-        }
 
-        return response()->json([
-            'error' => false,
-            'message' => 'Products retrieved successfully.',
-            'data' => $products,
-        ]);
+            $productsQuery = DB::table("products as a")
+                ->select(
+                    "a.*",
+                    "b.name as uom_name",
+                    "c.name as category",
+                    "d.name as sub_category",
+                    "e.name as brand",
+                    "pt.name as product_type",
+                    DB::raw("
+                    CASE 
+                        WHEN a.image IS NOT NULL 
+                        AND a.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image)
+                        ELSE NULL
+                    END as image
+                ")
+                )
+                ->join("product_uom as b", "a.uom_id", "b.id")
+                ->join("product_category as c", "a.category_id", "c.id")
+                ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+                ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+                ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
+                ->where("a.active", 1)
+                ->where(function ($q) use ($query) {
+                    $q->where("a.name", "like", "%{$query}%")
+                        ->orWhere("a.tags", "like", "%{$query}%")
+                        ->orWhere("a.description", "like", "%{$query}%");
+                });
+
+            $products = $productsQuery->limit(20)->get();
+
+            /*
+        |--------------------------------------------------------------------------
+        | AI Auto Correct Search
+        |--------------------------------------------------------------------------
+        */
+            if ($products->isEmpty()) {
+                try {
+                    $apiKey = config('services.openai.key');
+
+                    if ($apiKey) {
+                        $prompt = "The user searched for '{$query}'. Suggest the most likely correct English product search word. Return only the corrected word.";
+
+                        $response = Http::withHeaders([
+                            'Authorization' => 'Bearer ' . $apiKey,
+                            'Content-Type' => 'application/json',
+                        ])->post('https://api.openai.com/v1/chat/completions', [
+                            'model' => 'gpt-3.5-turbo',
+                            'messages' => [
+                                [
+                                    'role' => 'system',
+                                    'content' => 'You are a spelling correction assistant for e-commerce product search.'
+                                ],
+                                [
+                                    'role' => 'user',
+                                    'content' => $prompt
+                                ]
+                            ],
+                            'temperature' => 0.2,
+                        ]);
+
+                        $correctedQuery = trim(
+                            $response->json()['choices'][0]['message']['content'] ?? ''
+                        );
+
+                        if (!empty($correctedQuery) && strtolower($correctedQuery) != strtolower($query)) {
+
+                            $products = DB::table("products as a")
+                                ->select(
+                                    "a.*",
+                                    "b.name as uom",
+                                    "c.name as category",
+                                    "d.name as sub_category",
+                                    "e.name as brand",
+                                    "pt.name as product_type",
+                                    DB::raw("
+                                    CASE 
+                                        WHEN a.image IS NOT NULL 
+                                        AND a.image != '' 
+                                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image)
+                                        ELSE NULL
+                                    END as image
+                                ")
+                                )
+                                ->join("product_uom as b", "a.uom_id", "b.id")
+                                ->join("product_category as c", "a.category_id", "c.id")
+                                ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+                                ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+                                ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
+                                ->where("a.active", 1)
+                                ->where(function ($q) use ($correctedQuery) {
+                                    $q->where("a.name", "like", "%{$correctedQuery}%")
+                                        ->orWhere("a.tags", "like", "%{$correctedQuery}%")
+                                        ->orWhere("a.description", "like", "%{$correctedQuery}%");
+                                })
+                                ->limit(20)
+                                ->get();
+
+                            $query = $correctedQuery;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Ignore AI correction failure silently
+                }
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | Final Product Formatting
+        |--------------------------------------------------------------------------
+        */
+            foreach ($products as $key => $value) {
+
+                $details = DB::table("product_price")
+                    ->where("product_id", $value->id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+
+                if ($details->count() > 0) {
+
+                    foreach ($details as $dkey => $dvalue) {
+                        $details[$dkey]->final_price = $dvalue->price;
+                    }
+
+                    $lastIndex = $details->count() - 1;
+
+                    if ($value->is_discount == 1 && $value->discount > 0) {
+                        $highest = $details[$lastIndex];
+                        $discountAmount = ($highest->price * $value->discount) / 100;
+
+                        $details[$lastIndex]->final_price = round(
+                            $highest->price - $discountAmount,
+                            2
+                        );
+                    }
+
+                    $products[$key]->final_price = null;
+                } else {
+
+                    if ($value->is_discount == 1 && $value->discount > 0) {
+                        $discountAmount = ($value->base_price * $value->discount) / 100;
+                        $products[$key]->final_price = round(
+                            $value->base_price - $discountAmount,
+                            2
+                        );
+                    } else {
+                        $products[$key]->final_price = $value->base_price;
+                    }
+                }
+
+                $products[$key]->tiers = $details;
+
+                // Cart Qty
+                if ($customer_id) {
+                    $cartItem = DB::table("cart")
+                        ->where("product_id", $value->id)
+                        ->where("customer_id", $customer_id)
+                        ->first();
+
+                    $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
+                } else {
+                    $products[$key]->cart_qty = 0;
+                }
+
+                // Wishlist Status
+                $wishlist = DB::table("wishlist")
+                    ->where("product_id", $value->id)
+                    ->where("customer_id", $customer_id)
+                    ->first();
+
+                $products[$key]->wishlist_status = $wishlist ? true : false;
+            }
+
+            return response()->json([
+                'error' => false,
+                'message' => 'Products retrieved successfully.',
+                'searched_query' => $query,
+                'data' => $products,
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => true,
+                'message' => $th->getMessage(),
+                'data' => []
+            ], 500);
+        }
     }
+
+    // public function searchProducts(Request $request, $query)
+    // {
+    //     // $query = trim($request->input("query"));
+    //     $query = trim($query);
+
+    //     if (!$query) {
+    //         return response()->json([
+    //             'status' => true,
+    //             'message' => 'No query provided',
+    //             'data' => []
+    //         ]);
+    //     }
+
+    //     // 🧩 Step 1: Initial Search (normal LIKE search)
+    //     $productsQuery = DB::table("products as a")
+    //         ->select(
+    //             "a.*",
+    //             "b.name as uom",
+    //             "c.name as category",
+    //             "d.name as sub_category",
+    //             "e.name as brand",
+    //             "pt.name as product_type",
+    //             DB::raw("
+    //         CASE 
+    //             WHEN a.image IS NOT NULL AND a.image != '' 
+    //             THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+    //             ELSE NULL 
+    //         END as image
+    //     ")
+    //         )
+    //         ->join("product_uom as b", "a.uom_id", "b.id")
+    //         ->join("product_category as c", "a.category_id", "c.id")
+    //         ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+    //         ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+    //         ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
+    //         ->where("a.active", 1)
+    //         ->where(function ($q) use ($query) {
+    //             $q->where('a.name', 'like', '%' . $query . '%')
+    //                 ->orWhere('a.tags', 'like', '%' . $query . '%');
+    //         });
+
+    //     $products = $productsQuery->limit(20)->get();
+
+    //     // 🧠 Step 2: If no products found → use AI to correct query
+    //     if ($products->isEmpty()) {
+    //         try {
+    //             $apiKey = config('services.openai.key');
+    //             $prompt = "The user searched for '{$query}'. Suggest the most likely correct English product search word. 
+    //         Return only the corrected word (no extra text). Example:
+    //         Input: chini
+    //         Output: sugar";
+
+    //             $response = Http::withHeaders([
+    //                 'Authorization' => 'Bearer ' . $apiKey,
+    //                 'Content-Type' => 'application/json',
+    //             ])->post('https://api.openai.com/v1/chat/completions', [
+    //                 'model' => 'gpt-3.5-turbo',
+    //                 'messages' => [
+    //                     ['role' => 'system', 'content' => 'You are a spelling correction assistant for an e-commerce product search.'],
+    //                     ['role' => 'user', 'content' => $prompt],
+    //                 ],
+    //                 'temperature' => 0.2,
+    //             ]);
+
+    //             $aiContent = trim($response->json()['choices'][0]['message']['content'] ?? '');
+
+    //             if ($aiContent && strtolower($aiContent) !== strtolower($query)) {
+    //                 $correctedQuery = $aiContent;
+
+    //                 $products = DB::table("products as a")
+    //                     ->select(
+    //                         "a.*",
+    //                         "b.name as uom",
+    //                         "c.name as category",
+    //                         "d.name as sub_category",
+    //                         "e.name as brand",
+    //                         DB::raw("
+    //         CASE 
+    //             WHEN a.image IS NOT NULL AND a.image != '' 
+    //             THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image) 
+    //             ELSE NULL 
+    //         END as image
+    //     ")
+
+    //                     )
+    //                     ->join("product_uom as b", "a.uom_id", "b.id")
+    //                     ->join("product_category as c", "a.category_id", "c.id")
+    //                     ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+    //                     ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+    //                     ->where("a.active", 1)
+    //                     ->where(function ($q) use ($correctedQuery) {
+    //                         $q->where('a.name', 'like', '%' . $correctedQuery . '%')
+    //                             ->orWhere('a.tags', 'like', '%' . $correctedQuery . '%')
+    //                             ->orWhere('a.description', 'like', '%' . $correctedQuery . '%');
+    //                     })
+    //                     ->limit(20)
+    //                     ->get();
+
+    //                 return response()->json([
+    //                     'status' => true,
+    //                     'message' => 'Search completed (auto-corrected)',
+    //                     'corrected_query' => $correctedQuery,
+    //                     'data' => $products,
+    //                 ]);
+    //             }
+    //         } catch (\Exception $e) {
+    //             return response()->json([
+    //                 'error' => true,
+    //                 'message' => $e->getMessage(),
+    //                 'data' => [],
+    //             ]);
+    //         }
+    //     }
+
+    //     return response()->json([
+    //         'error' => false,
+    //         'message' => 'Products retrieved successfully.',
+    //         'data' => $products,
+    //     ]);
+    // }
 
     // public function searchProducts(Request $request, $query)
     // {

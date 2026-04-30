@@ -2001,6 +2001,7 @@ class WebApiController extends Controller
         $customer_details = DB::table("customers as a")
             ->select(
                 "a.*",
+                "a.hold_amount as out_standing_due",
                 "b.name as customer_name",
                 "b.number as customer_number",
                 "b.email as customer_email",
@@ -2008,7 +2009,14 @@ class WebApiController extends Controller
                 "b.state as customer_state",
                 "b.district as customer_district",
                 "b.city as customer_city",
-                "b.pincode as customer_pincode"
+                "b.pincode as customer_pincode",
+                DB::raw("
+                (
+                    COALESCE(a.wallet, 0) 
+                    - COALESCE(a.used_wallet, 0) 
+                    - COALESCE(a.hold_amount, 0)
+                ) as active_amount
+            ")
             )
             ->join("customer_users as b", "a.id", "=", "b.customer_id")
             ->where("b.customer_id", $request->user['customer_id'])

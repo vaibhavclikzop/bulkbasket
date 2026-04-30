@@ -1681,6 +1681,7 @@ class Supplier extends Controller
 
     public function EditEstimateOrder(Request $request)
     {
+        
         $request->validate([
             'id' => 'required',
             'order_status' => 'required',
@@ -1704,7 +1705,7 @@ class Supplier extends Controller
             $is_invoice = 1;
             $payment_status = "complete";
             $totalAmount = 0;
-            $oldholdAmnt = $request->total_amount;
+            $oldholdAmnt = $orderEstimate->total_amount;
             $orders = DB::table("order_estimate as a")
                 ->select(
                     "a.*",
@@ -1763,6 +1764,7 @@ class Supplier extends Controller
             $customer = DB::table('customers')->where('id', $orders->customer_id)->first();
             $paymode = $orders->pay_mode;
             $interestAmount = 0;
+            // dd($orderEstimate->total_amount);
             if ($paymode == 'wallet' && $customer) {
                 $holdAmount = $customer->hold_amount ?? 0;
                 $usedWallet = $customer->used_wallet ?? 0;
