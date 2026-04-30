@@ -534,7 +534,7 @@ class Masters extends Controller
         $gst = DB::table("product_gst")->where("supplier_id", $request->user['supplier_id'])->get();
         $query = DB::table("products as a")
             ->select("a.*", "b.name as brand", "c.name as category", "d.name as sub_category", "e.name as uom")
-            ->LeftJoin("product_brand as b", "a.brand_id", "b.id")
+            ->leftJoin("product_brand as b", "a.brand_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
             ->join("product_uom as e", "a.uom_id", "e.id")
@@ -553,12 +553,12 @@ class Masters extends Controller
         if (request("search_category_id")) {
             $query->where("a.category_id", request("search_category_id"));
         }
-        if (request("search_active")) {
-            $query->where("a.active", request("search_active"));
+        if ($request->filled('active') || $request->active === '0') {
+            $query->where("a.active", $request->active);
         }
         $productCount = DB::table('products')->count();
         $productType = DB::table('product_type')->where('active', 1)->get();
-        $data = $query->paginate(10)->withQueryString();
+        $data = $query->paginate(100)->withQueryString();
         return view("suppliers.products", compact("data", 'productType', 'warehouse', "vendor", "brand", "product_uom", "gst", "category", "productCount", "subCategories"));
     }
 

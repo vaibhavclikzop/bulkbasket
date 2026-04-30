@@ -60,15 +60,14 @@
                             </select>
                         </div>
                         <div class="mx-2">
-                            <select name="search_active" id="search_active" class="form-control"
-                                onchange="this.form.submit()">
+                            <select name="active" id="search_active" class="form-control" onchange="this.form.submit()">
                                 <option value="">Select Status</option>
 
-                                <option value="1" {{ request('search_active') == '1' ? 'selected' : '' }}>
+                                <option value="1" {{ request('active') == '1' ? 'selected' : '' }}>
                                     Active
                                 </option>
 
-                                <option value="0" {{ request('search_active') == '0' ? 'selected' : '' }}>
+                                <option value="0" {{ request('active') == '0' ? 'selected' : '' }}>
                                     In Active
                                 </option>
                             </select>
@@ -151,6 +150,7 @@
                                 <td>
                                     <div style="height:50px; width:50px;">
                                         <img src="{{ !empty($item->image) ? asset('product images/' . $item->image) : asset('images/dummy.png') }}"
+                                            loading="lazy" decoding="async"
                                             style="height:100%; width:100%; object-fit:cover; aspect-ratio:1/1;"
                                             alt="product">
                                     </div>
@@ -181,7 +181,8 @@
                                         <span class="dropdown-toggle" id="dropdownMenuButton7" data-bs-toggle="dropdown"
                                             aria-expanded="false" role="button"> Click Here
                                         </span>
-                                        <div class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton7">
+                                        <div class="dropdown-menu dropdown-menu-end"
+                                            aria-labelledby="dropdownMenuButton7">
                                             <div> <button class="btn btn-primary btn-sm edit"
                                                     data-data="{{ @json_encode($item) }}" type="button"
                                                     data-category="{{ $item->category }}"
@@ -262,7 +263,7 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label for="">Product Type <span style="color:red">*</span></label>
+                                <label for="">Product Type </label>
                                 <select name="product_type_id" id="product_type_id" class="form-control">
                                     <option value="">Select Type </option>
                                     @foreach ($productType as $item)
@@ -904,7 +905,7 @@
 
     <script>
         $(document).ready(function() {
-            $("#search_brand_id, #search_category_id","#search_active").select2();
+            $("#search_brand_id, #search_category_id", "#search_active").select2();
         })
 
         $(".btnAdd").on("click", function() {
