@@ -205,7 +205,7 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::get('web/get-wallet-ledger', [WebApiController::class, 'getWalletLedger'])->name('web/get-wallet-ledger');
     Route::post('web/add-wallet-amount', [WebApiController::class, 'AddWalletAmount'])->name('web/add-wallet-amount');
     Route::get('web/customer-detail', [WebApiController::class, 'customerProfileApi'])->name('web/customer-detail');
-    Route::post('web/hdfc/create-order', [WebApiController::class, 'createHdfcOrder'])->name('createHdfcOrder');
+    Route::post('web/hdfc/create-order', [WebApiController::class, 'createHdfcOrder'])->name('web/createHdfcOrder');
     Route::get('web/payment-processing/{invoice_no}', [WebApiController::class, 'checkStatus']);
     Route::post('web/payment/hdfc/webhook', [WebApiController::class, 'webhook'])
         ->name('web/hdfc.payment.webhook');

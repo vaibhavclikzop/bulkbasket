@@ -20,7 +20,8 @@
             </div>
         </div>
         <div class="card-body">
-            <table class="table dataTable">
+           <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover table-responsive" style="overflow: scroll">
                 <thead>
                     <tr>
                         <th>S.No</th>
@@ -54,10 +55,7 @@
                                         aria-expanded="false" role="button"> Click Here
                                     </span>
                                     <div class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton7"
-                                        style="
-                                        max-height: 100px;
-                                        overflow-y: auto;
-                                    ">
+                                        >
                                         @if (strtolower($item->order_status) == 'pending')
                                             <div class="mt-2">
                                                 <button class="btn btn-primary btn-sm estimate-edit"
@@ -136,6 +134,7 @@
                     @endforeach
                 </tbody>
             </table>
+           </div>
         </div>
     </div>
 
