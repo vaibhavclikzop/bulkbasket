@@ -110,7 +110,7 @@
             </div>
             <div class="row" style="justify-content: center">
                 <form method="GET">
-                    <div class="row"> 
+                    <div class="row">
                         <div class="col-md-3 mt-2">
                             <label>Select Zone</label>
                             <select name="zone_category" class="form-control">
@@ -123,12 +123,12 @@
                                     </option>
                                 @endforeach
                             </select>
-                        </div> 
+                        </div>
                         <div class="col-md-3 mt-2">
                             <label>Search</label>
                             <input type="text" name="search" value="{{ request('search') }}" class="form-control"
                                 placeholder="Search Row / Rack / Bin / Code">
-                        </div> 
+                        </div>
                         <div class="col-md-5 mt-4">
                             <button class="btn btn-primary">Filter</button>
                             <a href="{{ url()->current() }}" class="btn btn-secondary">
@@ -153,6 +153,7 @@
                         <th>Bin</th>
                         <th>Store</th>
                         <th>Location Code</th>
+                        {{-- <th>Bar Code</th> --}}
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -169,8 +170,10 @@
                             <td>{{ $item->rack }}</td>
                             <td>{{ $item->shelf }}</td>
                             <td>{{ $item->bin }}</td>
-                            <td>{{ $item->store ?? "--" }}</td>
+                            <td>{{ $item->store ?? '--' }}</td>
                             <td>{{ $item->location_code }}</td>
+                            {{-- <td><img src="/{{ $item->bar_code }}" alt="" style="height: 60px; width:120px;">
+                            </td> --}}
                             <td>
                                 @if ($item->is_active == 1)
                                     <span class="badge bg-success">Active</span>
@@ -238,8 +241,8 @@
                             </div>
                             <div class="col-md-4 mt-3">
                                 <label for="">Rack</label>
-                                <input type="text" name="rack" id="rack" placeholder="01" class="form-control"
-                                    required>
+                                <input type="text" name="rack" id="rack" placeholder="01"
+                                    class="form-control" required>
                             </div>
 
                             <div class="col-md-4 mt-3">

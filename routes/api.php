@@ -53,7 +53,7 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::post('add-to-cart', [ApiController::class, 'shopAddToCart'])->name('add-to-Cart');
     Route::post('remove-cart', [ApiController::class, 'removeItem'])->name('remove-cart');
     Route::post('add-to-wishlist', [ApiController::class, 'shopAddToWhishlist'])->name('add-to-wishlist');
-    Route::post('remove-wishlist', [ApiController::class, 'removewishlist'])->name('remove-wishlist');
+    // Route::post('remove-wishlist', [ApiController::class, 'removewishlist'])->name('remove-wishlist');
     Route::get('cart-view', [ApiController::class, 'cartApi'])->name('cart-view');
     Route::get('whishlist-view', [ApiController::class, 'whishList'])->name('whishlist-view');
     Route::get('get-cart', [ApiController::class, 'getCartByCustomer'])->name('get-cart');
@@ -99,8 +99,9 @@ Route::get('/subCategories', function () {
 //mobile app api routes 
 Route::post('mobile/send-otp', [mobileAppController::class, 'sendOTP'])->name('mobile/send-otp');
 Route::post('mobile/verify-otp', [mobileAppController::class, 'verifyOTP'])->name('mobile/verify-otp');
-Route::get('mobile/get-products-deal', [mobileAppController::class, 'mobDealOnDay'])->name('mobDealOnDay');
+ Route::get('mobile/search-products/{query}', [mobileAppController::class, 'searchProducts'])->name('mobile/search-products');
 Route::middleware([customerMobileMiddleware::class])->group(function () {
+    Route::get('mobile/get-products-deal', [mobileAppController::class, 'mobDealOnDay'])->name('mobDealOnDay');
     Route::get('mobile/home-page', [mobileAppController::class, 'homePage'])->name('mobile/home-page');
     Route::post('mobile/check-gst', [mobileAppController::class, 'checkGST'])->name('mobile/check-gst');
     Route::post('mobile/update-profile', [mobileAppController::class, 'updateProfile'])->name('mobile/update-profile');
@@ -131,7 +132,7 @@ Route::middleware([customerMobileMiddleware::class])->group(function () {
     Route::get('mobile/get-order', [mobileAppController::class, 'getOrder'])->name('mobile/get-order');
     Route::get('mobile/get-order-details/{id}', [mobileAppController::class, 'getOrderDetails'])->name('mobile/get-order-details');
     Route::get('mobile/get-wallet-ledger', [mobileAppController::class, 'getWalletLedger'])->name('mobile/get-wallet-ledger');
-    Route::get('mobile/search-products/{query}', [mobileAppController::class, 'searchProducts'])->name('mobile/search-products');
+   
     Route::post('mobile/add-walllet-amount', [mobileAppController::class, 'AddWalletAmount'])->name('mobile/add-walllet-amount');
 });
 
@@ -181,7 +182,7 @@ Route::middleware([CustomerFrontend::class])->group(function () {
     Route::post('web/remove-cart-item', [WebApiController::class, 'removeCartItem'])->name('web/remove-cart-item');
     Route::post('web/update-cart-qty', [WebApiController::class, 'updateCartQty'])->name('web/update-cart-qty');
     Route::post('web/add-to-wishlist', [WebApiController::class, 'addToWishList'])->name('web/add-to-wishlist');
-    Route::post('web/remove-wishlist', [ApiController::class, 'removewishlist'])->name('web/remove-wishlist');
+    Route::post('web/remove-wishlist', [WebApiController::class, 'removewishlist'])->name('web/remove-wishlist');
     Route::post('web/update-wishlist-qty', [WebApiController::class, 'updateWishListQty'])->name('web/update-wishlist-qty');
     Route::get('web/get-wishlist', [WebApiController::class, 'getWishList'])->name('web/get-wishlist');
     Route::post('web/update-profile', [WebApiController::class, 'updateProfile'])->name('web/update-profile');

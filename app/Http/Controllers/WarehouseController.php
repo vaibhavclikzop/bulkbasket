@@ -9,6 +9,7 @@ use App\Models\WareHouseZone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class WarehouseController extends Controller
 {
@@ -97,10 +98,10 @@ class WarehouseController extends Controller
         $warehouseName = WareHouse::where('id', $id)->first();
         $warehouseZone = WareHouseZone::where('is_active', 1)->get();
         $query = WarehouseLocation::with('warehouse', 'warehouseZone')
-            ->where('warehouse_id', $id); 
+            ->where('warehouse_id', $id);
         if ($request->zone_category) {
             $query->where('zone_id', $request->zone_category);
-        } 
+        }
         if ($request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -110,8 +111,8 @@ class WarehouseController extends Controller
                     ->orWhere('bin', 'LIKE', "%$search%")
                     ->orWhere('location_code', 'LIKE', "%$search%");
             });
-        } 
-        $warehouseLocation = $query->paginate(10)->withQueryString();
+        }
+        $warehouseLocation = $query->paginate(50)->withQueryString();
         return view('suppliers.ware-house-location', compact(
             'warehouseLocation',
             'warehouseName',
@@ -151,7 +152,28 @@ class WarehouseController extends Controller
         if (!empty($request->store)) {
             $locationParts[] = $request->store;
         }
-        $location->location_code = implode('-', $locationParts);
+        $locationCode = implode('-', $locationParts);
+        $location->location_code = $locationCode;
+        // $barcodeFileName = $locationCode . '.png';
+        // $barcodePath = public_path('warehouse-slab-barcode/' . $barcodeFileName);
+        // if (!file_exists(public_path('warehouse-slab-barcode'))) {
+        //     mkdir(public_path('warehouse-slab-barcode'), 0777, true);
+        // }
+        // $generator = new BarcodeGeneratorPNG();
+        // $barcodeData = $generator->getBarcode(
+        //     $locationCode,
+        //     $generator::TYPE_CODE_128,
+        //     2,
+        //     60
+        // );
+        // $barcodeFileName = $locationCode . '.png';
+        // $folderPath = public_path('warehouse-slab-barcode');
+        // if (!file_exists($folderPath)) {
+        //     mkdir($folderPath, 0777, true);
+        // }
+        // $barcodePath = $folderPath . '/' . $barcodeFileName;
+        // file_put_contents($barcodePath, $barcodeData);
+        // $location->bar_code = 'warehouse-slab-barcode/' . $barcodeFileName;
         $location->save();
         return redirect()->back()->with(
             'success',
@@ -208,18 +230,39 @@ class WarehouseController extends Controller
                     $parts[] = trim($row[6]);
                 }
                 $locationCode = implode('-', $parts);
+                // $barcodeFileName = $locationCode . '.png';
+                // $barcodePath = public_path('warehouse-slab-barcode/' . $barcodeFileName);
+                // if (!file_exists(public_path('warehouse-slab-barcode'))) {
+                //     mkdir(public_path('warehouse-slab-barcode'), 0777, true);
+                // }
+                // $generator = new BarcodeGeneratorPNG();
+                // $barcodeData = $generator->getBarcode(
+                //     $locationCode,
+                //     $generator::TYPE_CODE_128,
+                //     2,
+                //     60
+                // );
+                // $barcodeFileName = $locationCode . '.png';
+                // $folderPath = public_path('warehouse-slab-barcode');
+                // if (!file_exists($folderPath)) {
+                //     mkdir($folderPath, 0777, true);
+                // }
+                // $barcodePath = $folderPath . '/' . $barcodeFileName;
+                // file_put_contents($barcodePath, $barcodeData);
+                // $barcodeLocation = 'warehouse-slab-barcode/' . $barcodeFileName;
                 WarehouseLocation::firstOrCreate(
                     [
                         'warehouse_id' => $warehouse->id,
                         'zone_id' => $zone->id,
                         'row' => trim($row[2]),
                         'rack' => trim($row[3]),
-                        'shelf' => trim($row[4]),
-                        'bin' => trim($row[5]),
-                        'store' => trim($row[6]),
+                        'shelf' => trim($row[4] ?? ''),
+                        'bin' => trim($row[5] ?? ''),
+                        'store' => trim($row[6] ?? ''),
                     ],
                     [
                         'location_code' => $locationCode
+                        // 'bar_code' => $barcodeLocation
                     ]
                 );
                 $success++;

@@ -16,7 +16,8 @@ class WarehouseLocation extends Model
         'shelf',
         'bin',
         'location_code',
-        'store'
+        'store',
+        // 'bar_code'
     ];
 
     public function warehouse()

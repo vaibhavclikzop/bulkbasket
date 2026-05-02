@@ -1159,7 +1159,6 @@ class WebApiController extends Controller
     public function getCart(Request $request)
     {
         try {
-
             $cart = DB::table("cart as c")
                 ->join("products as p", "c.product_id", "p.id")
                 ->where("c.customer_id", $request->user["customer_id"])
@@ -1172,25 +1171,21 @@ class WebApiController extends Controller
                     "p.gst",
                     "p.cess_tax",
                     DB::raw("
-            CASE 
-                WHEN p.image IS NOT NULL AND p.image != '' 
-                THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image) 
-                ELSE NULL 
-            END as image
-        ")
+                        CASE 
+                            WHEN p.image IS NOT NULL AND p.image != '' 
+                            THEN CONCAT('https://store.bulkbasketindia.com/product images/', p.image) 
+                            ELSE NULL 
+                        END as image
+                    ")
                 )
                 ->get();
-
             $productIds = $cart->pluck('product_id');
-
             $productPrices = DB::table("product_price")
                 ->whereIn("product_id", $productIds)
                 ->orderBy("qty", "asc")
                 ->get()
                 ->groupBy("product_id");
-
             $result = [];
-
             foreach ($cart as $item) {
                 $qty = $item->qty;
                 $details = $productPrices[$item->product_id] ?? collect();
@@ -1202,7 +1197,6 @@ class WebApiController extends Controller
                     ->orderBy("b.qty", "desc")
                     ->value("b.base_price");
                 if (!$price) {
-
                     $price = DB::table("product_price")
                         ->where("product_id", $item->product_id)
                         ->where("qty", "<=", $qty)
@@ -1212,7 +1206,6 @@ class WebApiController extends Controller
                 if (!$price) {
                     $price = DB::table("products")->where("id", $item->product_id)->value("base_price");
                 }
-
                 $result[] = [
                     "cart_id" => $item->id,
                     "product_id" => $item->product_id,
@@ -1233,34 +1226,22 @@ class WebApiController extends Controller
             $taxable = 0;
             $totalAmount = 0;
             $gstBifurcation = [];
-
             foreach ($result as $value) {
-
                 $amount = $value["price"] * $value["qty"];
                 $gst = $value["gst"];
-
                 $taxable += $amount;
-
                 $gstAmount = ($amount * $gst) / 100;
-
                 if (!isset($gstBifurcation[$gst])) {
                     $gstBifurcation[$gst] = (object)[
                         "percentage" => number_format($gst, 2),
                         "price" => 0
                     ];
                 }
-
                 $gstBifurcation[$gst]->price += $gstAmount;
-
-
-
-
                 $totalAmount += $amount + $gstAmount;
             }
             $gstBifurcation = array_values($gstBifurcation);
             $orderSummary = array("taxable" => $taxable, "gstBifurcation" => $gstBifurcation, "totalAmount" => $totalAmount);
-
-
             return response()->json([
                 'error' => false,
                 'message' => "Load Successfully",
@@ -2157,7 +2138,7 @@ class WebApiController extends Controller
                 $holdAmount = (float)($customer->hold_amount ?? 0);
                 $usedWallet = (float)($customer->used_wallet ?? 0);
 
-                if (($holdAmount +$usedWallet  + $total_amount) > $wallet) {
+                if (($holdAmount + $usedWallet  + $total_amount) > $wallet) {
                     DB::rollBack();
                     return response()->json([
                         'status' => false,
@@ -2511,30 +2492,28 @@ class WebApiController extends Controller
     public function removewishlist(Request $request)
     {
         try {
-            $product_id = $request->input('product_id');
-            $customer_id = $request->input('customer_id');
-            if (!$product_id || !$customer_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product ID & Customer ID are required'
-                ], 400);
-            }
+
+            $request->validate([
+                'product_id' => 'required',
+                'customer_id' => 'required',
+            ]);
+
             $deleted = DB::table('wishlist')
-                ->where('product_id', $product_id)
-                ->where('customer_id', $customer_id)
+                ->where('product_id', $request->product_id)
+                ->where('customer_id', $request->user['customer_id'])
                 ->delete();
 
-            if ($deleted) {
+            if ($deleted > 0) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Item removed successfully'
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No matching record found'
-                ], 404);
+                ], 200);
             }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No matching record found'
+            ], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

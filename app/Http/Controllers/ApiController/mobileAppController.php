@@ -228,6 +228,7 @@ class mobileAppController extends Controller
 
     public function homePage(Request $request)
     {
+
         try {
             $data["sliders"] = DB::table("sliders6")
                 ->select(
@@ -403,6 +404,7 @@ class mobileAppController extends Controller
                 if ($product->mrp > 0) {
                     $discount = round((($product->mrp - $price_for_discount) / $product->mrp) * 100, 2);
                 }
+
                 $productData = [
                     "id" => $product->id,
                     "image" => $product->image,
@@ -421,7 +423,6 @@ class mobileAppController extends Controller
                     "cart_status" => $cart ? true : false,
                     "wishlist_status" => $wishlist ? true : false,
                 ];
-
                 $productArr[$product->category_name]["category_name"] = $product->category_name;
                 $productArr[$product->category_name]["products"][] = $productData;
             }
@@ -445,9 +446,10 @@ class mobileAppController extends Controller
 
     public function mobDealOnDay(Request $request)
     {
+
         $category_id = $request->category_id;
         $sub_category_id = $request->sub_category_id;
-
+        $customer_id = $request->user["customer_id"];
         $query = DB::table("products as a")
             ->select(
                 "a.*",
@@ -456,18 +458,19 @@ class mobileAppController extends Controller
                 "d.name as sub_category",
                 "pt.name as product_type",
                 DB::raw("
-                    CASE 
-                        WHEN a.image IS NOT NULL AND a.image != '' 
-                        THEN CONCAT('https://store.bulkbasketindia.com/product%20images/', a.image) 
-                        ELSE NULL 
-                    END as image
-                "),
+                CASE 
+                    WHEN a.image IS NOT NULL AND a.image != '' 
+                    THEN CONCAT('https://store.bulkbasketindia.com/product%20images/', a.image) 
+                    ELSE NULL 
+                END as image
+            "),
                 DB::raw("
-                        (SELECT COALESCE(SUM(cs.stock), 0) 
-                        FROM current_stock cs 
-                        WHERE cs.product_id = a.id
-                        ) as current_stock
-                    ")
+                (
+                    SELECT COALESCE(SUM(cs.stock), 0) 
+                    FROM current_stock cs 
+                    WHERE cs.product_id = a.id
+                ) as current_stock
+            ")
             )
             ->join("product_uom as b", "a.uom_id", "b.id")
             ->join("product_category as c", "a.category_id", "c.id")
@@ -475,61 +478,211 @@ class mobileAppController extends Controller
             ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
             ->where("a.active", 1)
             ->where("a.is_deal", 1);
+
         if ($category_id) {
             $query->where("a.category_id", $category_id);
         }
+
         if ($sub_category_id) {
             $query->where("a.sub_category_id", $sub_category_id);
         }
-        $products = $query->get();
-        foreach ($products as $key => $value) {
-            $details = DB::table("product_price")
-                ->where("product_id", $value->id)
-                ->orderBy("qty", "asc")
-                ->get();
-            if ($details->count() > 0) {
-                foreach ($details as $dkey => $dvalue) {
-                    $details[$dkey]->final_price = $dvalue->price;
-                }
-                $lastIndex = $details->count() - 1;
-                if ($value->is_discount == 1 && $value->discount > 0) {
-                    $highest = $details[$lastIndex];
-                    $discountAmount = ($highest->price * $value->discount) / 100;
-                    $details[$lastIndex]->final_price = round($highest->price - $discountAmount, 2);
-                }
-                $products[$key]->final_price = null;
-            } else {
-                if ($value->is_discount == 1 && $value->discount > 0) {
-                    $discountAmount = ($value->base_price * $value->discount) / 100;
-                    $products[$key]->final_price = round($value->base_price - $discountAmount, 2);
-                } else {
-                    $products[$key]->final_price = $value->base_price;
-                }
-            }
-            $products[$key]->details = $details;
 
-            if ($category_id) {
-                $cartItem = DB::table("cart")
-                    ->where("product_id", $value->id)
-                    ->where("customer_id", $category_id)
-                    ->first();
-                $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
-            } else {
-                $products[$key]->cart_qty = 0;
-            }
-            $wishlist = DB::table("wishlist")
-                ->where("product_id", $value->id)
-                ->where("customer_id", $request->customer_id)
+        $products = $query->get();
+        $productArr = [];
+
+        foreach ($products as $product) {
+
+            /*
+        |--------------------------------------------------------------------------
+        | FIX: Cart and Wishlist must be inside foreach using product->id
+        |--------------------------------------------------------------------------
+        */
+
+            $cart = DB::table("cart")
+                ->where("customer_id", $customer_id)
+                ->where("product_id", $product->id)
+                ->orderBy("id", "desc")
                 ->first();
 
-            $products[$key]->wishlist_status = $wishlist ? true : false;
+            $wishlist = DB::table("wishlist")
+                ->where("customer_id", $customer_id)
+                ->where("product_id", $product->id)
+                ->first();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Product Price Tiers
+            |--------------------------------------------------------------------------
+            */
+
+            $tiers = DB::table("product_price")
+                ->select("product_id", "qty", "price")
+                ->where("product_id", $product->id)
+                ->orderBy("qty", "asc")
+                ->get();
+
+            $final_price = null;
+
+            if ($tiers->count() > 0) {
+
+                foreach ($tiers as $tkey => $tier) {
+                    $tiers[$tkey]->final_price = $tier->price;
+                }
+
+                $lastIndex = $tiers->count() - 1;
+                $highest = $tiers[$lastIndex];
+
+                if ($product->is_discount == 1 && $product->discount > 0) {
+                    $discountAmount = ($highest->price * $product->discount) / 100;
+                    $final_price = round($highest->price - $discountAmount, 2);
+
+                    $tiers[$lastIndex]->final_price = $final_price;
+                } else {
+                    $final_price = $highest->price;
+                }
+            } else {
+
+                if ($product->is_discount == 1 && $product->discount > 0) {
+                    $discountAmount = ($product->base_price * $product->discount) / 100;
+                    $final_price = round($product->base_price - $discountAmount, 2);
+                } else {
+                    $final_price = $product->base_price;
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Discount %
+            |--------------------------------------------------------------------------
+            */
+
+            $price_for_discount = $final_price ?? $product->base_price;
+            $discount = 0;
+            if ($product->mrp > 0) {
+                $discount = round((($product->mrp - $price_for_discount) / $product->mrp) * 100, 2);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Final Response
+            |--------------------------------------------------------------------------
+            */
+
+            $productData = [
+                "id" => $product->id,
+                "image" => $product->image,
+                "name" => $product->name,
+                "gst" => $product->gst,
+                "cess_tax" => $product->cess_tax,
+                "price" => $final_price,
+                "mrp" => $product->mrp,
+                "current_stock" => $product->current_stock,
+                "uom_name" => $product->uom_name,
+                "per_uom" => $product->per_uom,
+                "product_type" => $product->product_type,
+                "discount" => $discount,
+                "tiers" => $tiers->values(),
+                "cart" => $cart,
+                "cart_qty" => $cart ? $cart->qty : 0,
+                "cart_status" => $cart ? true : false,
+                "wishlist_status" => $wishlist ? true : false,
+            ];
+            $productArr[] = $productData;
         }
         return response()->json([
             'error' => false,
             'message' => 'Deal of the day products fetched successfully',
-            'dealofdayproduct' => $products,
+            'dealofdayproduct' => $productArr,
         ], 200);
     }
+
+    // public function mobDealOnDay(Request $request)
+    // {
+    //     $category_id = $request->category_id;
+    //     $sub_category_id = $request->sub_category_id;
+
+    //     $query = DB::table("products as a")
+    //         ->select(
+    //             "a.*",
+    //             "b.name as uom_name",
+    //             "c.name as category",
+    //             "d.name as sub_category",
+    //             "pt.name as product_type",
+    //             DB::raw("
+    //                 CASE 
+    //                     WHEN a.image IS NOT NULL AND a.image != '' 
+    //                     THEN CONCAT('https://store.bulkbasketindia.com/product%20images/', a.image) 
+    //                     ELSE NULL 
+    //                 END as image
+    //             "),
+    //             DB::raw("
+    //                     (SELECT COALESCE(SUM(cs.stock), 0) 
+    //                     FROM current_stock cs 
+    //                     WHERE cs.product_id = a.id
+    //                     ) as current_stock
+    //                 ")
+    //         )
+    //         ->join("product_uom as b", "a.uom_id", "b.id")
+    //         ->join("product_category as c", "a.category_id", "c.id")
+    //         ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+    //         ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
+    //         ->where("a.active", 1)
+    //         ->where("a.is_deal", 1);
+    //     if ($category_id) {
+    //         $query->where("a.category_id", $category_id);
+    //     }
+    //     if ($sub_category_id) {
+    //         $query->where("a.sub_category_id", $sub_category_id);
+    //     }
+    //     $products = $query->get();
+    //     foreach ($products as $key => $value) {
+    //         $details = DB::table("product_price")
+    //             ->where("product_id", $value->id)
+    //             ->orderBy("qty", "asc")
+    //             ->get();
+    //         if ($details->count() > 0) {
+    //             foreach ($details as $dkey => $dvalue) {
+    //                 $details[$dkey]->final_price = $dvalue->price;
+    //             }
+    //             $lastIndex = $details->count() - 1;
+    //             if ($value->is_discount == 1 && $value->discount > 0) {
+    //                 $highest = $details[$lastIndex];
+    //                 $discountAmount = ($highest->price * $value->discount) / 100;
+    //                 $details[$lastIndex]->final_price = round($highest->price - $discountAmount, 2);
+    //             }
+    //             $products[$key]->final_price = null;
+    //         } else {
+    //             if ($value->is_discount == 1 && $value->discount > 0) {
+    //                 $discountAmount = ($value->base_price * $value->discount) / 100;
+    //                 $products[$key]->final_price = round($value->base_price - $discountAmount, 2);
+    //             } else {
+    //                 $products[$key]->final_price = $value->base_price;
+    //             }
+    //         }
+    //         $products[$key]->details = $details;
+
+    //         if ($category_id) {
+    //             $cartItem = DB::table("cart")
+    //                 ->where("product_id", $value->id)
+    //                 ->where("customer_id", $category_id)
+    //                 ->first();
+    //             $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
+    //         } else {
+    //             $products[$key]->cart_qty = 0;
+    //         }
+    //         $wishlist = DB::table("wishlist")
+    //             ->where("product_id", $value->id)
+    //             ->where("customer_id", $request->customer_id)
+    //             ->first();
+
+    //         $products[$key]->wishlist_status = $wishlist ? true : false;
+    //     }
+    //     return response()->json([
+    //         'error' => false,
+    //         'message' => 'Deal of the day products fetched successfully',
+    //         'dealofdayproduct' => $products,
+    //     ], 200);
+    // }
 
     public function checkGST(Request $request)
     {
@@ -2258,7 +2411,7 @@ class mobileAppController extends Controller
     {
 
         try {
-            $data = DB::table("order_estimate")->where("customer_id", $request->user["customer_id"])->get();
+            $data = DB::table("order_estimate")->where('order_status', 'pending')->where("customer_id", $request->user["customer_id"])->get();
             return response()->json([
                 'error' => false,
                 'message' => 'Load successfully.',
@@ -2508,207 +2661,207 @@ class mobileAppController extends Controller
         }
     }
 
-    public function searchProducts(Request $request, $query)
-    {
-        try {
-            $query = trim($query);
-            $customer_id = $request->customer_id ?? null;
+    // public function searchProducts(Request $request, $query)
+    // {
+    //     try {
+    //         $query = trim($query);
+    //         $customer_id = $request->customer_id ?? null;
 
-            if (empty($query)) {
-                return response()->json([
-                    'status' => true,
-                    'message' => 'No query provided',
-                    'data' => []
-                ]);
-            }
+    //         if (empty($query)) {
+    //             return response()->json([
+    //                 'status' => true,
+    //                 'message' => 'No query provided',
+    //                 'data' => []
+    //             ]);
+    //         }
 
-            $productsQuery = DB::table("products as a")
-                ->select(
-                    "a.*",
-                    "b.name as uom_name",
-                    "c.name as category",
-                    "d.name as sub_category",
-                    "e.name as brand",
-                    "pt.name as product_type",
-                    DB::raw("
-                    CASE 
-                        WHEN a.image IS NOT NULL 
-                        AND a.image != '' 
-                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image)
-                        ELSE NULL
-                    END as image
-                ")
-                )
-                ->join("product_uom as b", "a.uom_id", "b.id")
-                ->join("product_category as c", "a.category_id", "c.id")
-                ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-                ->leftJoin("product_brand as e", "a.brand_id", "e.id")
-                ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
-                ->where("a.active", 1)
-                ->where(function ($q) use ($query) {
-                    $q->where("a.name", "like", "%{$query}%")
-                        ->orWhere("a.tags", "like", "%{$query}%")
-                        ->orWhere("a.description", "like", "%{$query}%");
-                });
+    //         $productsQuery = DB::table("products as a")
+    //             ->select(
+    //                 "a.*",
+    //                 "b.name as uom_name",
+    //                 "c.name as category",
+    //                 "d.name as sub_category",
+    //                 "e.name as brand",
+    //                 "pt.name as product_type",
+    //                 DB::raw("
+    //                 CASE 
+    //                     WHEN a.image IS NOT NULL 
+    //                     AND a.image != '' 
+    //                     THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image)
+    //                     ELSE NULL
+    //                 END as image
+    //             ")
+    //             )
+    //             ->join("product_uom as b", "a.uom_id", "b.id")
+    //             ->join("product_category as c", "a.category_id", "c.id")
+    //             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+    //             ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+    //             ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
+    //             ->where("a.active", 1)
+    //             ->where(function ($q) use ($query) {
+    //                 $q->where("a.name", "like", "%{$query}%")
+    //                     ->orWhere("a.tags", "like", "%{$query}%")
+    //                     ->orWhere("a.description", "like", "%{$query}%");
+    //             });
 
-            $products = $productsQuery->limit(20)->get();
+    //         $products = $productsQuery->limit(20)->get();
 
-            /*
-        |--------------------------------------------------------------------------
-        | AI Auto Correct Search
-        |--------------------------------------------------------------------------
-        */
-            if ($products->isEmpty()) {
-                try {
-                    $apiKey = config('services.openai.key');
+    //         /*
+    //     |--------------------------------------------------------------------------
+    //     | AI Auto Correct Search
+    //     |--------------------------------------------------------------------------
+    //     */
+    //         if ($products->isEmpty()) {
+    //             try {
+    //                 $apiKey = config('services.openai.key');
 
-                    if ($apiKey) {
-                        $prompt = "The user searched for '{$query}'. Suggest the most likely correct English product search word. Return only the corrected word.";
+    //                 if ($apiKey) {
+    //                     $prompt = "The user searched for '{$query}'. Suggest the most likely correct English product search word. Return only the corrected word.";
 
-                        $response = Http::withHeaders([
-                            'Authorization' => 'Bearer ' . $apiKey,
-                            'Content-Type' => 'application/json',
-                        ])->post('https://api.openai.com/v1/chat/completions', [
-                            'model' => 'gpt-3.5-turbo',
-                            'messages' => [
-                                [
-                                    'role' => 'system',
-                                    'content' => 'You are a spelling correction assistant for e-commerce product search.'
-                                ],
-                                [
-                                    'role' => 'user',
-                                    'content' => $prompt
-                                ]
-                            ],
-                            'temperature' => 0.2,
-                        ]);
+    //                     $response = Http::withHeaders([
+    //                         'Authorization' => 'Bearer ' . $apiKey,
+    //                         'Content-Type' => 'application/json',
+    //                     ])->post('https://api.openai.com/v1/chat/completions', [
+    //                         'model' => 'gpt-3.5-turbo',
+    //                         'messages' => [
+    //                             [
+    //                                 'role' => 'system',
+    //                                 'content' => 'You are a spelling correction assistant for e-commerce product search.'
+    //                             ],
+    //                             [
+    //                                 'role' => 'user',
+    //                                 'content' => $prompt
+    //                             ]
+    //                         ],
+    //                         'temperature' => 0.2,
+    //                     ]);
 
-                        $correctedQuery = trim(
-                            $response->json()['choices'][0]['message']['content'] ?? ''
-                        );
+    //                     $correctedQuery = trim(
+    //                         $response->json()['choices'][0]['message']['content'] ?? ''
+    //                     );
 
-                        if (!empty($correctedQuery) && strtolower($correctedQuery) != strtolower($query)) {
+    //                     if (!empty($correctedQuery) && strtolower($correctedQuery) != strtolower($query)) {
 
-                            $products = DB::table("products as a")
-                                ->select(
-                                    "a.*",
-                                    "b.name as uom",
-                                    "c.name as category",
-                                    "d.name as sub_category",
-                                    "e.name as brand",
-                                    "pt.name as product_type",
-                                    DB::raw("
-                                    CASE 
-                                        WHEN a.image IS NOT NULL 
-                                        AND a.image != '' 
-                                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image)
-                                        ELSE NULL
-                                    END as image
-                                ")
-                                )
-                                ->join("product_uom as b", "a.uom_id", "b.id")
-                                ->join("product_category as c", "a.category_id", "c.id")
-                                ->join("product_sub_category as d", "a.sub_category_id", "d.id")
-                                ->leftJoin("product_brand as e", "a.brand_id", "e.id")
-                                ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
-                                ->where("a.active", 1)
-                                ->where(function ($q) use ($correctedQuery) {
-                                    $q->where("a.name", "like", "%{$correctedQuery}%")
-                                        ->orWhere("a.tags", "like", "%{$correctedQuery}%")
-                                        ->orWhere("a.description", "like", "%{$correctedQuery}%");
-                                })
-                                ->limit(20)
-                                ->get();
+    //                         $products = DB::table("products as a")
+    //                             ->select(
+    //                                 "a.*",
+    //                                 "b.name as uom",
+    //                                 "c.name as category",
+    //                                 "d.name as sub_category",
+    //                                 "e.name as brand",
+    //                                 "pt.name as product_type",
+    //                                 DB::raw("
+    //                                 CASE 
+    //                                     WHEN a.image IS NOT NULL 
+    //                                     AND a.image != '' 
+    //                                     THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image)
+    //                                     ELSE NULL
+    //                                 END as image
+    //                             ")
+    //                             )
+    //                             ->join("product_uom as b", "a.uom_id", "b.id")
+    //                             ->join("product_category as c", "a.category_id", "c.id")
+    //                             ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+    //                             ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+    //                             ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
+    //                             ->where("a.active", 1)
+    //                             ->where(function ($q) use ($correctedQuery) {
+    //                                 $q->where("a.name", "like", "%{$correctedQuery}%")
+    //                                     ->orWhere("a.tags", "like", "%{$correctedQuery}%")
+    //                                     ->orWhere("a.description", "like", "%{$correctedQuery}%");
+    //                             })
+    //                             ->limit(20)
+    //                             ->get();
 
-                            $query = $correctedQuery;
-                        }
-                    }
-                } catch (\Exception $e) {
-                    // Ignore AI correction failure silently
-                }
-            }
+    //                         $query = $correctedQuery;
+    //                     }
+    //                 }
+    //             } catch (\Exception $e) {
+    //                 // Ignore AI correction failure silently
+    //             }
+    //         }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Final Product Formatting
-        |--------------------------------------------------------------------------
-        */
-            foreach ($products as $key => $value) {
+    //         /*
+    //     |--------------------------------------------------------------------------
+    //     | Final Product Formatting
+    //     |--------------------------------------------------------------------------
+    //     */
+    //         foreach ($products as $key => $value) {
 
-                $details = DB::table("product_price")
-                    ->where("product_id", $value->id)
-                    ->orderBy("qty", "asc")
-                    ->get();
+    //             $details = DB::table("product_price")
+    //                 ->where("product_id", $value->id)
+    //                 ->orderBy("qty", "asc")
+    //                 ->get();
 
-                if ($details->count() > 0) {
+    //             if ($details->count() > 0) {
 
-                    foreach ($details as $dkey => $dvalue) {
-                        $details[$dkey]->final_price = $dvalue->price;
-                    }
+    //                 foreach ($details as $dkey => $dvalue) {
+    //                     $details[$dkey]->final_price = $dvalue->price;
+    //                 }
 
-                    $lastIndex = $details->count() - 1;
+    //                 $lastIndex = $details->count() - 1;
 
-                    if ($value->is_discount == 1 && $value->discount > 0) {
-                        $highest = $details[$lastIndex];
-                        $discountAmount = ($highest->price * $value->discount) / 100;
+    //                 if ($value->is_discount == 1 && $value->discount > 0) {
+    //                     $highest = $details[$lastIndex];
+    //                     $discountAmount = ($highest->price * $value->discount) / 100;
 
-                        $details[$lastIndex]->final_price = round(
-                            $highest->price - $discountAmount,
-                            2
-                        );
-                    }
+    //                     $details[$lastIndex]->final_price = round(
+    //                         $highest->price - $discountAmount,
+    //                         2
+    //                     );
+    //                 }
 
-                    $products[$key]->final_price = null;
-                } else {
+    //                 $products[$key]->final_price = null;
+    //             } else {
 
-                    if ($value->is_discount == 1 && $value->discount > 0) {
-                        $discountAmount = ($value->base_price * $value->discount) / 100;
-                        $products[$key]->final_price = round(
-                            $value->base_price - $discountAmount,
-                            2
-                        );
-                    } else {
-                        $products[$key]->final_price = $value->base_price;
-                    }
-                }
+    //                 if ($value->is_discount == 1 && $value->discount > 0) {
+    //                     $discountAmount = ($value->base_price * $value->discount) / 100;
+    //                     $products[$key]->final_price = round(
+    //                         $value->base_price - $discountAmount,
+    //                         2
+    //                     );
+    //                 } else {
+    //                     $products[$key]->final_price = $value->base_price;
+    //                 }
+    //             }
 
-                $products[$key]->tiers = $details;
+    //             $products[$key]->tiers = $details;
 
-                // Cart Qty
-                if ($customer_id) {
-                    $cartItem = DB::table("cart")
-                        ->where("product_id", $value->id)
-                        ->where("customer_id", $customer_id)
-                        ->first();
+    //             // Cart Qty
+    //             if ($customer_id) {
+    //                 $cartItem = DB::table("cart")
+    //                     ->where("product_id", $value->id)
+    //                     ->where("customer_id", $customer_id)
+    //                     ->first();
 
-                    $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
-                } else {
-                    $products[$key]->cart_qty = 0;
-                }
+    //                 $products[$key]->cart_qty = $cartItem ? $cartItem->qty : 0;
+    //             } else {
+    //                 $products[$key]->cart_qty = 0;
+    //             }
 
-                // Wishlist Status
-                $wishlist = DB::table("wishlist")
-                    ->where("product_id", $value->id)
-                    ->where("customer_id", $customer_id)
-                    ->first();
+    //             // Wishlist Status
+    //             $wishlist = DB::table("wishlist")
+    //                 ->where("product_id", $value->id)
+    //                 ->where("customer_id", $customer_id)
+    //                 ->first();
 
-                $products[$key]->wishlist_status = $wishlist ? true : false;
-            }
+    //             $products[$key]->wishlist_status = $wishlist ? true : false;
+    //         }
 
-            return response()->json([
-                'error' => false,
-                'message' => 'Products retrieved successfully.',
-                'searched_query' => $query,
-                'data' => $products,
-            ]);
-        } catch (\Throwable $th) {
-            return response()->json([
-                'error' => true,
-                'message' => $th->getMessage(),
-                'data' => []
-            ], 500);
-        }
-    }
+    //         return response()->json([
+    //             'error' => false,
+    //             'message' => 'Products retrieved successfully.',
+    //             'searched_query' => $query,
+    //             'data' => $products,
+    //         ]);
+    //     } catch (\Throwable $th) {
+    //         return response()->json([
+    //             'error' => true,
+    //             'message' => $th->getMessage(),
+    //             'data' => []
+    //         ], 500);
+    //     }
+    // }
 
     public function AddWalletAmount(Request $request)
     {
@@ -2812,4 +2965,184 @@ class mobileAppController extends Controller
             ], 500);
         }
     }
+
+
+    public function searchProducts(Request $request, $query)
+    {
+        try {
+
+            $query = normalizeSearch($query);
+            $query = trim($query);
+            $words = array_filter(explode(' ', $query));
+            $customer_id = $request->customer_id ?? null;
+
+            if (empty($query)) {
+                return response()->json([
+                    'error' => false,
+                    'message' => 'No query provided',
+                    'data' => []
+                ]);
+            }
+
+            $productsQuery = DB::table("products as a")
+                ->select(
+                    "a.*",
+                    "b.name as uom_name",
+                    "c.name as category",
+                    "d.name as sub_category",
+                    "e.name as brand",
+                    "pt.name as product_type",
+                    DB::raw("
+                        CASE 
+                            WHEN a.name LIKE '{$query}%' THEN 1
+                            WHEN a.name LIKE '%{$query}%' THEN 2
+                            WHEN a.tags LIKE '%{$query}%' THEN 3
+                            WHEN a.description LIKE '%{$query}%' THEN 4
+                            WHEN SOUNDEX(a.name) = SOUNDEX('{$query}') THEN 5
+                            ELSE 6
+                        END as relevance
+                    "),
+                    DB::raw("
+                    CASE 
+                        WHEN a.image IS NOT NULL AND a.image != '' 
+                        THEN CONCAT('https://store.bulkbasketindia.com/product images/', a.image)
+                        ELSE NULL
+                    END as image
+                ")
+                )
+                ->join("product_uom as b", "a.uom_id", "b.id")
+                ->join("product_category as c", "a.category_id", "c.id")
+                ->join("product_sub_category as d", "a.sub_category_id", "d.id")
+                ->leftJoin("product_brand as e", "a.brand_id", "e.id")
+                ->leftJoin("product_type as pt", "a.product_type_id", "pt.id")
+                ->where("a.active", 1)
+                ->where(function ($q) use ($query, $words) {
+
+                    $q->where("a.name", "like", "%{$query}%")
+                        ->orWhere("a.tags", "like", "%{$query}%")
+                        ->orWhere("a.description", "like", "%{$query}%")
+                        ->orWhere("a.article_no", "like", "%{$query}%")
+                        ->orWhere("a.hsn_code", "like", "%{$query}%")
+                        ->orWhereRaw("SOUNDEX(a.name) = SOUNDEX(?)", [$query]);
+
+                    foreach ($words as $word) {
+                        $q->orWhere("a.name", "like", "%{$word}%")
+                            ->orWhere("a.tags", "like", "%{$word}%")
+                            ->orWhere("a.description", "like", "%{$word}%");
+                    }
+                })
+
+                ->orderBy('relevance', 'asc')
+                ->orderBy('a.name', 'asc')
+                ->limit(20);
+
+            $products = $productsQuery->limit(20)->get();
+
+            // (your existing loop unchanged)
+            foreach ($products as $key => $value) {
+
+                $details = DB::table("product_price")
+                    ->where("product_id", $value->id)
+                    ->orderBy("qty", "asc")
+                    ->get();
+
+                foreach ($details as $dkey => $dvalue) {
+                    $details[$dkey]->final_price = $dvalue->price;
+                }
+
+                if ($details->count() > 0 && $value->is_discount == 1 && $value->discount > 0) {
+
+                    $lastIndex = $details->count() - 1;
+                    $highest = $details[$lastIndex];
+
+                    $discountAmount = ($highest->price * $value->discount) / 100;
+
+                    $details[$lastIndex]->final_price = round(
+                        $highest->price - $discountAmount,
+                        2
+                    );
+
+                    $products[$key]->final_price = null;
+                } else {
+                    $products[$key]->final_price = $value->base_price;
+                }
+
+                $products[$key]->tiers = $details;
+
+                // cart
+                $products[$key]->cart_qty = 0;
+                if ($customer_id) {
+                    $cartItem = DB::table("cart")
+                        ->where("product_id", $value->id)
+                        ->where("customer_id", $customer_id)
+                        ->first();
+
+                    $products[$key]->cart_qty = $cartItem->qty ?? 0;
+                }
+
+                // wishlist
+                $products[$key]->wishlist_status = false;
+
+                if ($customer_id) {
+                    $wishlist = DB::table("wishlist")
+                        ->where("product_id", $value->id)
+                        ->where("customer_id", $customer_id)
+                        ->first();
+
+                    $products[$key]->wishlist_status = $wishlist ? true : false;
+                }
+            }
+
+            return response()->json([
+                'error' => false,
+                'message' => 'Products retrieved successfully',
+                'searched_query' => $query,
+                'data' => $products
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => true,
+                'message' => $th->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
+}
+
+function normalizeSearch($query)
+{
+    $query = strtolower(trim($query));
+
+    $map = [
+        'atta' => 'wheat flour',
+        'aata' => 'wheat flour',
+        'आटा' => 'wheat flour',
+        'wheat flour' => 'wheat flour',
+        'rice' => 'rice',
+        'chawal' => 'rice',
+        'चावल' => 'rice',
+        'dal' => 'pulses',
+        'daal' => 'pulses',
+        'दाल' => 'pulses',
+        'sugar' => 'sugar',
+        'cheeni' => 'sugar',
+        'चीनी' => 'sugar',
+        'oil' => 'edible oil',
+        'tel' => 'edible oil',
+        'तेल' => 'edible oil',
+        'milk' => 'milk',
+        'doodh' => 'milk',
+        'दूध' => 'milk',
+        'tea' => 'tea',
+        'chai' => 'tea',
+        'चाय' => 'tea',
+        'salt' => 'salt',
+        'namak' => 'salt',
+        'नमक' => 'salt',
+        'suger' => 'sugar',
+        'chawal ' => 'rice',
+        'attaa' => 'wheat flour',
+    ];
+
+    return str_replace(array_keys($map), array_values($map), $query);
 }
